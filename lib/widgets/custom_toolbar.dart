@@ -3,12 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 
+import 'line_spacing_sheet.dart';
+
 class CustomToolbar extends StatefulWidget {
   final QuillController controller;
+  final double lineSpacing;
+  final ValueChanged<double>? onLineSpacingChanged;
+  final VoidCallback? onOpenLineSpacing;
 
   const CustomToolbar({
     super.key,
     required this.controller,
+    this.lineSpacing = 1.6,
+    this.onLineSpacingChanged,
+    this.onOpenLineSpacing,
   });
 
   @override
@@ -436,7 +444,55 @@ class _CustomToolbarState extends State<CustomToolbar> {
                 ),
                 const SizedBox(width: 8),
 
-                // 3. Font Color Picker
+                // 3. Line Spacing Picker (Jarak Antar Baris)
+                InkWell(
+                  onTap: () {
+                    if (widget.onOpenLineSpacing != null) {
+                      widget.onOpenLineSpacing!();
+                    } else if (widget.onLineSpacingChanged != null) {
+                      LineSpacingSheet.show(
+                        context: context,
+                        currentSpacing: widget.lineSpacing,
+                        onSpacingChanged: widget.onLineSpacingChanged!,
+                      );
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.format_line_spacing_rounded,
+                          size: 18,
+                          color: Color(0xFF475569),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${widget.lineSpacing.toStringAsFixed(1)}x',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 16,
+                          color: Color(0xFF64748B),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // 4. Font Color Picker
                 InkWell(
                   onTap: _showColorPicker,
                   borderRadius: BorderRadius.circular(10),

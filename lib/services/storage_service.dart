@@ -229,4 +229,16 @@ class StorageService {
       await saveNotes(notes);
     }
   }
+
+  static const String _lineSpacingKey = 'pref_line_spacing_v1';
+
+  Future<double> getLineSpacing() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble(_lineSpacingKey) ?? 1.55;
+  }
+
+  Future<void> saveLineSpacing(double spacing) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_lineSpacingKey, spacing);
+  }
 }

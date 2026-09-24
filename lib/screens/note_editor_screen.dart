@@ -7,6 +7,7 @@ import '../models/folder_model.dart';
 import '../models/note_model.dart';
 import '../utils/folder_utils.dart';
 import '../widgets/custom_toolbar.dart';
+import '../widgets/line_spacing_sheet.dart';
 import '../widgets/move_note_dialog.dart';
 
 class NoteEditorScreen extends StatefulWidget {
@@ -35,6 +36,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
 
   late String? _currentFolderId;
   late bool _isPinned;
+  late double _lineSpacing;
   Timer? _debounceTimer;
 
   @override
@@ -43,6 +45,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
     _titleController = TextEditingController(text: widget.note.title);
     _currentFolderId = widget.note.folderId;
     _isPinned = widget.note.isPinned;
+    _lineSpacing = widget.note.lineSpacing ?? 1.6;
 
     _initQuill();
 
@@ -100,6 +103,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
       plainText: plainText,
       folderId: _currentFolderId,
       isPinned: _isPinned,
+      lineSpacing: _lineSpacing,
       updatedAt: DateTime.now(),
     );
 
@@ -135,6 +139,25 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
       });
       _saveImmediately();
     }
+  }
+
+  void _showLineSpacingDialog() {
+    LineSpacingSheet.show(
+      context: context,
+      currentSpacing: _lineSpacing,
+      onSpacingChanged: (newSpacing) {
+        setState(() {
+          _lineSpacing = newSpacing;
+        });
+        _scheduleAutoSave();
+      },
+      onReset: () {
+        setState(() {
+          _lineSpacing = 1.6;
+        });
+        _scheduleAutoSave();
+      },
+    );
   }
 
   void _confirmDelete() {
@@ -287,13 +310,29 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                 borderRadius: BorderRadius.circular(16),
               ),
               onSelected: (val) {
-                if (val == 'move') {
+                if (val == 'spacing') {
+                  _showLineSpacingDialog();
+                } else if (val == 'move') {
                   _changeFolder();
                 } else if (val == 'delete') {
                   _confirmDelete();
                 }
               },
               itemBuilder: (ctx) => [
+                const PopupMenuItem(
+                  value: 'spacing',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.format_line_spacing_rounded,
+                        size: 18,
+                        color: Color(0xFF475569),
+                      ),
+                      SizedBox(width: 10),
+                      Text('Jarak Antar Baris', style: TextStyle(fontSize: 14)),
+                    ],
+                  ),
+                ),
                 const PopupMenuItem(
                   value: 'move',
                   child: Row(
@@ -371,11 +410,84 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     child: QuillEditor.basic(
                       controller: _quillController,
+                      config: QuillEditorConfig(
+                        customStyles: DefaultStyles(
+                          paragraph: DefaultTextBlockStyle(
+                            GoogleFonts.poppins(
+                              fontSize: 15,
+                              color: const Color(0xFF1E293B),
+                              height: _lineSpacing,
+                            ),
+                            const HorizontalSpacing(0, 0),
+                            VerticalSpacing(0, (_lineSpacing - 1.0).clamp(0.0, 10.0) * 3),
+                            const VerticalSpacing(0, 0),
+                            null,
+                          ),
+                          h1: DefaultTextBlockStyle(
+                            GoogleFonts.poppins(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF0F172A),
+                              height: (_lineSpacing * 0.85).clamp(1.1, 2.5),
+                            ),
+                            const HorizontalSpacing(0, 0),
+                            const VerticalSpacing(16, 8),
+                            const VerticalSpacing(0, 0),
+                            null,
+                          ),
+                          h2: DefaultTextBlockStyle(
+                            GoogleFonts.poppins(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF1E293B),
+                              height: (_lineSpacing * 0.9).clamp(1.1, 2.5),
+                            ),
+                            const HorizontalSpacing(0, 0),
+                            const VerticalSpacing(12, 6),
+                            const VerticalSpacing(0, 0),
+                            null,
+                          ),
+                          h3: DefaultTextBlockStyle(
+                            GoogleFonts.poppins(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF334155),
+                              height: (_lineSpacing * 0.95).clamp(1.1, 2.5),
+                            ),
+                            const HorizontalSpacing(0, 0),
+                            const VerticalSpacing(8, 4),
+                            const VerticalSpacing(0, 0),
+                            null,
+                          ),
+                          lists: DefaultListBlockStyle(
+                            GoogleFonts.poppins(
+                              fontSize: 15,
+                              color: const Color(0xFF1E293B),
+                              height: _lineSpacing,
+                            ),
+                            const HorizontalSpacing(0, 0),
+                            VerticalSpacing(2, (_lineSpacing - 1.0).clamp(0.0, 6.0) * 2),
+                            const VerticalSpacing(0, 0),
+                            null,
+                            null,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-                // Custom Toolbar for Rich Text Styling
-                CustomToolbar(controller: _quillController),
+                // Custom Toolbar for Rich Text Styling & Line Spacing
+                CustomToolbar(
+                  controller: _quillController,
+                  lineSpacing: _lineSpacing,
+                  onLineSpacingChanged: (val) {
+                    setState(() {
+                      _lineSpacing = val;
+                    });
+                    _scheduleAutoSave();
+                  },
+                  onOpenLineSpacing: _showLineSpacingDialog,
+                ),
               ],
             ),
           ),

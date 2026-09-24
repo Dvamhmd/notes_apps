@@ -9,6 +9,7 @@ class NoteModel {
   DateTime createdAt;
   DateTime updatedAt;
   bool isPinned;
+  double? lineSpacing;
 
   NoteModel({
     required this.id,
@@ -19,6 +20,7 @@ class NoteModel {
     required this.createdAt,
     required this.updatedAt,
     this.isPinned = false,
+    this.lineSpacing,
   });
 
   Map<String, dynamic> toMap() {
@@ -31,6 +33,7 @@ class NoteModel {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'isPinned': isPinned,
+      'lineSpacing': lineSpacing,
     };
   }
 
@@ -48,6 +51,7 @@ class NoteModel {
           ? DateTime.parse(map['updatedAt'])
           : DateTime.now(),
       isPinned: map['isPinned'] ?? false,
+      lineSpacing: (map['lineSpacing'] as num?)?.toDouble(),
     );
   }
 
@@ -67,6 +71,7 @@ class NoteModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isPinned,
+    Object? lineSpacing = _sentinel,
   }) {
     return NoteModel(
       id: id ?? this.id,
@@ -79,6 +84,9 @@ class NoteModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isPinned: isPinned ?? this.isPinned,
+      lineSpacing: identical(lineSpacing, _sentinel)
+          ? this.lineSpacing
+          : lineSpacing as double?,
     );
   }
 }
