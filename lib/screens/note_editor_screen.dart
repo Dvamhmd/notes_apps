@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import '../models/folder_model.dart';
 import '../models/note_model.dart';
+import '../services/rich_clipboard_service.dart';
 import '../utils/folder_utils.dart';
 import '../widgets/custom_selection_controls.dart';
 import '../widgets/custom_toolbar.dart';
@@ -412,91 +414,162 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    child: QuillEditor.basic(
-                      controller: _quillController,
-                      config: QuillEditorConfig(
-                        enableInteractiveSelection: true,
-                        showCursor: true,
-                        paintCursorAboveText: true,
-                        enableSelectionToolbar: true,
-                        textSelectionControls: CustomTouchTextSelectionControls.instance,
-                        scrollable: true,
-                        expands: true,
-                        padding: const EdgeInsets.only(bottom: 80),
-                        customStyleBuilder: (Attribute attribute) {
-                          if (attribute.key == Attribute.underline.key) {
-                            return const TextStyle(
-                              decoration: TextDecoration.underline,
-                              decorationThickness: 1.3,
-                              decorationStyle: TextDecorationStyle.solid,
-                            );
-                          }
-                          return const TextStyle();
+                    child: CallbackShortcuts(
+                      bindings: <ShortcutActivator, VoidCallback>{
+                        const SingleActivator(LogicalKeyboardKey.keyC, control: true): () {
+                          RichClipboardService.copySelection(_quillController);
                         },
-                        customStyles: DefaultStyles(
-                          paragraph: DefaultTextBlockStyle(
-                            TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 15,
-                              color: const Color(0xFF1E293B),
-                              height: _lineSpacing,
-                            ),
-                            const HorizontalSpacing(0, 0),
-                            VerticalSpacing(0, (_lineSpacing - 1.0).clamp(0.0, 10.0) * 3),
-                            const VerticalSpacing(0, 0),
-                            null,
+                        const SingleActivator(LogicalKeyboardKey.keyC, meta: true): () {
+                          RichClipboardService.copySelection(_quillController);
+                        },
+                        const SingleActivator(LogicalKeyboardKey.keyX, control: true): () {
+                          RichClipboardService.cutSelection(_quillController);
+                        },
+                        const SingleActivator(LogicalKeyboardKey.keyX, meta: true): () {
+                          RichClipboardService.cutSelection(_quillController);
+                        },
+                        const SingleActivator(LogicalKeyboardKey.keyV, control: true): () {
+                          RichClipboardService.paste(_quillController);
+                        },
+                        const SingleActivator(LogicalKeyboardKey.keyV, meta: true): () {
+                          RichClipboardService.paste(_quillController);
+                        },
+                      },
+                      child: Actions(
+                        actions: <Type, Action<Intent>>{
+                          CopySelectionTextIntent: CallbackAction<CopySelectionTextIntent>(
+                            onInvoke: (intent) {
+                              RichClipboardService.copySelection(_quillController);
+                              return null;
+                            },
                           ),
-                          h1: DefaultTextBlockStyle(
-                            TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 24,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF0F172A),
-                              height: (_lineSpacing * 0.85).clamp(1.1, 2.5),
-                            ),
-                            const HorizontalSpacing(0, 0),
-                            const VerticalSpacing(16, 8),
-                            const VerticalSpacing(0, 0),
-                            null,
+                          PasteTextIntent: CallbackAction<PasteTextIntent>(
+                            onInvoke: (intent) {
+                              RichClipboardService.paste(_quillController);
+                              return null;
+                            },
                           ),
-                          h2: DefaultTextBlockStyle(
-                            TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF1E293B),
-                              height: (_lineSpacing * 0.9).clamp(1.1, 2.5),
+                        },
+                        child: QuillEditor.basic(
+                          controller: _quillController,
+                          config: QuillEditorConfig(
+                            enableInteractiveSelection: true,
+                            showCursor: true,
+                            paintCursorAboveText: true,
+                            enableSelectionToolbar: true,
+                            textSelectionControls: CustomTouchTextSelectionControls.instance,
+                            contextMenuBuilder: (context, rawEditorState) {
+                              final buttonItems = rawEditorState.contextMenuButtonItems;
+                              return AdaptiveTextSelectionToolbar.buttonItems(
+                                anchors: rawEditorState.contextMenuAnchors,
+                                buttonItems: buttonItems.map((item) {
+                                  if (item.type == ContextMenuButtonType.copy) {
+                                    return item.copyWith(
+                                      onPressed: () {
+                                        RichClipboardService.copySelection(_quillController);
+                                        rawEditorState.hideToolbar();
+                                      },
+                                    );
+                                  }
+                                  if (item.type == ContextMenuButtonType.cut) {
+                                    return item.copyWith(
+                                      onPressed: () {
+                                        RichClipboardService.cutSelection(_quillController);
+                                        rawEditorState.hideToolbar();
+                                      },
+                                    );
+                                  }
+                                  if (item.type == ContextMenuButtonType.paste) {
+                                    return item.copyWith(
+                                      onPressed: () async {
+                                        await RichClipboardService.paste(_quillController);
+                                        rawEditorState.hideToolbar();
+                                      },
+                                    );
+                                  }
+                                  return item;
+                                }).toList(),
+                              );
+                            },
+                            scrollable: true,
+                            expands: true,
+                            padding: const EdgeInsets.only(bottom: 80),
+                            customStyleBuilder: (Attribute attribute) {
+                              if (attribute.key == Attribute.underline.key) {
+                                return const TextStyle(
+                                  decoration: TextDecoration.underline,
+                                  decorationThickness: 1.3,
+                                  decorationStyle: TextDecorationStyle.solid,
+                                );
+                              }
+                              return const TextStyle();
+                            },
+                            customStyles: DefaultStyles(
+                              paragraph: DefaultTextBlockStyle(
+                                TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 15,
+                                  color: const Color(0xFF1E293B),
+                                  height: _lineSpacing,
+                                ),
+                                const HorizontalSpacing(0, 0),
+                                VerticalSpacing(0, (_lineSpacing - 1.0).clamp(0.0, 10.0) * 3),
+                                const VerticalSpacing(0, 0),
+                                null,
+                              ),
+                              h1: DefaultTextBlockStyle(
+                                TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF0F172A),
+                                  height: (_lineSpacing * 0.85).clamp(1.1, 2.5),
+                                ),
+                                const HorizontalSpacing(0, 0),
+                                const VerticalSpacing(16, 8),
+                                const VerticalSpacing(0, 0),
+                                null,
+                              ),
+                              h2: DefaultTextBlockStyle(
+                                TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF1E293B),
+                                  height: (_lineSpacing * 0.9).clamp(1.1, 2.5),
+                                ),
+                                const HorizontalSpacing(0, 0),
+                                const VerticalSpacing(12, 6),
+                                const VerticalSpacing(0, 0),
+                                null,
+                              ),
+                              h3: DefaultTextBlockStyle(
+                                TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF334155),
+                                  height: (_lineSpacing * 0.95).clamp(1.1, 2.5),
+                                ),
+                                const HorizontalSpacing(0, 0),
+                                const VerticalSpacing(8, 4),
+                                const VerticalSpacing(0, 0),
+                                null,
+                              ),
+                              lists: DefaultListBlockStyle(
+                                TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 15,
+                                  color: const Color(0xFF1E293B),
+                                  height: _lineSpacing,
+                                ),
+                                const HorizontalSpacing(0, 0),
+                                VerticalSpacing(2, (_lineSpacing - 1.0).clamp(0.0, 6.0) * 2),
+                                const VerticalSpacing(0, 0),
+                                null,
+                                null,
+                              ),
                             ),
-                            const HorizontalSpacing(0, 0),
-                            const VerticalSpacing(12, 6),
-                            const VerticalSpacing(0, 0),
-                            null,
-                          ),
-                          h3: DefaultTextBlockStyle(
-                            TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 17,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF334155),
-                              height: (_lineSpacing * 0.95).clamp(1.1, 2.5),
-                            ),
-                            const HorizontalSpacing(0, 0),
-                            const VerticalSpacing(8, 4),
-                            const VerticalSpacing(0, 0),
-                            null,
-                          ),
-                          lists: DefaultListBlockStyle(
-                            TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 15,
-                              color: const Color(0xFF1E293B),
-                              height: _lineSpacing,
-                            ),
-                            const HorizontalSpacing(0, 0),
-                            VerticalSpacing(2, (_lineSpacing - 1.0).clamp(0.0, 6.0) * 2),
-                            const VerticalSpacing(0, 0),
-                            null,
-                            null,
                           ),
                         ),
                       ),

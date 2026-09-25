@@ -4,12 +4,15 @@ import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 import '../models/folder_model.dart';
 import '../models/note_model.dart';
+import '../models/search_filter_model.dart';
 import '../services/storage_service.dart';
 import '../utils/folder_utils.dart';
 import '../widgets/create_folder_dialog.dart';
 import '../widgets/create_note_dialog.dart';
 import '../widgets/move_note_dialog.dart';
 import '../widgets/note_card.dart';
+import '../widgets/search_filter_bar.dart';
+import '../widgets/search_filter_sheet.dart';
 import 'folder_manage_screen.dart';
 import 'note_editor_screen.dart';
 
@@ -36,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _searchQuery = '';
   late String? _currentFolderId; // null = Root / Beranda
+  SearchFilterConfig _searchFilterConfig = const SearchFilterConfig();
 
   bool _isSelectionMode = false;
   final Set<String> _selectedNoteIds = {};
@@ -51,6 +55,16 @@ class _HomeScreenState extends State<HomeScreen> {
   int get _totalSelectedCount => _selectedNoteIds.length + _selectedFolderIds.length;
 
   bool get _isAllSelected {
+    if (_searchQuery.isNotEmpty) {
+      final folders = _cachedSearchFolders;
+      final notes = _cachedCurrentNotes;
+      if (folders.isEmpty && notes.isEmpty) return false;
+      final allFoldersSelected =
+          folders.isEmpty || folders.every((f) => _selectedFolderIds.contains(f.id));
+      final allNotesSelected =
+          notes.isEmpty || notes.every((n) => _selectedNoteIds.contains(n.id));
+      return allFoldersSelected && allNotesSelected;
+    }
     final subfolders = _currentSubfolders;
     final notes = _currentNotes;
     if (subfolders.isEmpty && notes.isEmpty) return false;
@@ -99,8 +113,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _toggleSelectAll() {
     HapticFeedback.selectionClick();
-    final subfolders = _currentSubfolders;
-    final notes = _currentNotes;
+    final subfolders = _searchQuery.isNotEmpty ? _cachedSearchFolders : _currentSubfolders;
+    final notes = _searchQuery.isNotEmpty ? _cachedCurrentNotes : _currentNotes;
     setState(() {
       if (_isAllSelected) {
         _selectedNoteIds.clear();
@@ -144,6 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, int> _subfolderCountMap = {};
   List<NoteModel> _cachedCurrentNotes = [];
   List<FolderModel> _cachedCurrentSubfolders = [];
+  List<FolderModel> _cachedSearchFolders = [];
 
   void _recalculateDerivedData() {
     _folderMap = {for (final f in _folders) f.id: f};
@@ -165,25 +180,67 @@ class _HomeScreenState extends State<HomeScreen> {
     _subfolderCountMap = subCounts;
 
     _cachedCurrentSubfolders = FolderUtils.getSubfolders(_currentFolderId, _folders);
-    _recalculateFilteredNotes();
+    _recalculateFilteredItems();
   }
 
-  void _recalculateFilteredNotes() {
+  void _recalculateFilteredItems() {
     if (_searchQuery.trim().isNotEmpty) {
-      final q = _searchQuery.toLowerCase();
-      final list = _allNotes.where((n) {
-        final matchTitle = n.title.toLowerCase().contains(q);
-        final matchContent = n.plainText.toLowerCase().contains(q);
-        return matchTitle || matchContent;
-      }).toList();
+      final q = _searchQuery.toLowerCase().trim();
 
-      list.sort((a, b) {
-        if (a.isPinned && !b.isPinned) return -1;
-        if (!a.isPinned && b.isPinned) return 1;
-        return b.updatedAt.compareTo(a.updatedAt);
-      });
-      _cachedCurrentNotes = list;
+      // 1. Filter Notes
+      if (_searchFilterConfig.itemType == SearchItemType.folders) {
+        _cachedCurrentNotes = [];
+      } else {
+        Iterable<NoteModel> notePool;
+        if (_searchFilterConfig.scope == SearchScope.currentFolder) {
+          notePool = _allNotes.where((n) => n.folderId == _currentFolderId);
+        } else {
+          notePool = _allNotes;
+        }
+
+        final matchedNotes = notePool.where((n) {
+          final titleLower = n.title.toLowerCase();
+          final contentLower = n.plainText.toLowerCase();
+
+          switch (_searchFilterConfig.target) {
+            case SearchTarget.all:
+              return titleLower.contains(q) || contentLower.contains(q);
+            case SearchTarget.titleOnly:
+              return titleLower.contains(q);
+            case SearchTarget.contentOnly:
+              return contentLower.contains(q);
+          }
+        }).toList();
+
+        matchedNotes.sort((a, b) {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          return b.updatedAt.compareTo(a.updatedAt);
+        });
+
+        _cachedCurrentNotes = matchedNotes;
+      }
+
+      // 2. Filter Folders
+      if (_searchFilterConfig.itemType == SearchItemType.notes ||
+          _searchFilterConfig.target == SearchTarget.contentOnly) {
+        _cachedSearchFolders = [];
+      } else {
+        Iterable<FolderModel> folderPool;
+        if (_searchFilterConfig.scope == SearchScope.currentFolder) {
+          folderPool = _folders.where((f) => f.parentId == _currentFolderId);
+        } else {
+          folderPool = _folders;
+        }
+
+        final matchedFolders = folderPool.where((f) {
+          return f.name.toLowerCase().contains(q);
+        }).toList();
+
+        _cachedSearchFolders = FolderUtils.sortFolders(matchedFolders);
+      }
     } else {
+      _cachedSearchFolders = [];
       final list = _allNotes
           .where((n) => n.folderId == _currentFolderId)
           .toList();
@@ -270,7 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _searchQuery = '';
       _searchController.clear();
       _cachedCurrentSubfolders = FolderUtils.getSubfolders(_currentFolderId, _folders);
-      _recalculateFilteredNotes();
+      _recalculateFilteredItems();
     });
     _autoScrollBreadcrumbToEnd();
   }
@@ -1932,71 +1989,153 @@ class _HomeScreenState extends State<HomeScreen> {
                   constraints: const BoxConstraints(maxWidth: 900),
                   child: Column(
                     children: [
-                      // Search Bar
+                      // Search Bar with Filter Button
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
                         child: Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                            border: Border.all(
+                              color: !_searchFilterConfig.isDefault
+                                  ? const Color(0xFF4F46E5).withValues(alpha: 0.6)
+                                  : const Color(0xFFE2E8F0),
+                              width: !_searchFilterConfig.isDefault ? 1.5 : 1.0,
+                            ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF0F172A).withValues(alpha: 0.02),
+                                color: !_searchFilterConfig.isDefault
+                                    ? const Color(0xFF4F46E5).withValues(alpha: 0.08)
+                                    : const Color(0xFF0F172A).withValues(alpha: 0.02),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
                             ],
                           ),
-                          child: TextField(
-                            controller: _searchController,
-                            onChanged: (val) {
-                              setState(() {
-                                _searchQuery = val;
-                              });
-                            },
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFF1E293B),
-                              fontWeight: FontWeight.w500,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: _currentFolderId != null
-                                  ? 'Cari di ${currentFolder?.name ?? "folder"} & semua catatan...'
-                                  : 'Cari catatan...',
-                              hintStyle: const TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF94A3B8),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _searchController,
+                                  onChanged: (val) {
+                                    setState(() {
+                                      _searchQuery = val;
+                                      _recalculateFilteredItems();
+                                    });
+                                  },
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF1E293B),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: _getSearchHintText(currentFolder),
+                                    hintStyle: const TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF94A3B8),
+                                    ),
+                                    prefixIcon: const Icon(
+                                      Icons.search_rounded,
+                                      color: Color(0xFF94A3B8),
+                                      size: 20,
+                                    ),
+                                    suffixIcon: _searchQuery.isNotEmpty
+                                        ? IconButton(
+                                            icon: const Icon(
+                                              Icons.clear_rounded,
+                                              color: Color(0xFF94A3B8),
+                                              size: 18,
+                                            ),
+                                            onPressed: () {
+                                              _searchController.clear();
+                                              setState(() {
+                                                _searchQuery = '';
+                                                _recalculateFilteredItems();
+                                              });
+                                            },
+                                          )
+                                        : null,
+                                    border: InputBorder.none,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 14,
+                                    ),
+                                  ),
+                                ),
                               ),
-                              prefixIcon: const Icon(
-                                Icons.search_rounded,
-                                color: Color(0xFF94A3B8),
-                                size: 20,
-                              ),
-                              suffixIcon: _searchQuery.isNotEmpty
-                                  ? IconButton(
-                                      icon: const Icon(
-                                        Icons.clear_rounded,
-                                        color: Color(0xFF94A3B8),
-                                        size: 18,
+                              // Filter Button with Badge
+                              IconButton(
+                                tooltip: 'Filter Pencarian',
+                                icon: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    Icon(
+                                      Icons.tune_rounded,
+                                      size: 20,
+                                      color: !_searchFilterConfig.isDefault
+                                          ? const Color(0xFF4F46E5)
+                                          : const Color(0xFF64748B),
+                                    ),
+                                    if (!_searchFilterConfig.isDefault)
+                                      Positioned(
+                                        top: -2,
+                                        right: -2,
+                                        child: Container(
+                                          width: 8,
+                                          height: 8,
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFF4F46E5),
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
                                       ),
-                                      onPressed: () {
-                                        _searchController.clear();
-                                        setState(() {
-                                          _searchQuery = '';
-                                        });
-                                      },
-                                    )
-                                  : null,
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
+                                  ],
+                                ),
+                                onPressed: () {
+                                  SearchFilterSheet.show(
+                                    context,
+                                    currentConfig: _searchFilterConfig,
+                                    currentFolder: currentFolder,
+                                    onApply: (newConfig) {
+                                      setState(() {
+                                        _searchFilterConfig = newConfig;
+                                        _recalculateFilteredItems();
+                                      });
+                                    },
+                                  );
+                                },
                               ),
-                            ),
+                              const SizedBox(width: 4),
+                            ],
                           ),
                         ),
                       ),
+
+                      // Filter Chips Bar (Quick scope, type, and target selection)
+                      SearchFilterChipsBar(
+                        config: _searchFilterConfig,
+                        currentFolder: currentFolder,
+                        onChanged: (newConfig) {
+                          setState(() {
+                            _searchFilterConfig = newConfig;
+                            _recalculateFilteredItems();
+                          });
+                        },
+                        onOpenFullFilter: () {
+                          SearchFilterSheet.show(
+                            context,
+                            currentConfig: _searchFilterConfig,
+                            currentFolder: currentFolder,
+                            onApply: (newConfig) {
+                              setState(() {
+                                _searchFilterConfig = newConfig;
+                                _recalculateFilteredItems();
+                              });
+                            },
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 4),
 
                       // Breadcrumbs / Hierarchy Navigator (Point #1 - replaces tab filters)
                       _buildBreadcrumbBar(breadcrumbPath, currentFolder),
@@ -3050,113 +3189,489 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Search Results View across all folders
-  Widget _buildSearchResultsView() {
-    final results = _currentNotes;
+  String _getSearchHintText(FolderModel? currentFolder) {
+    final folderName = currentFolder?.name ?? 'Beranda';
+    if (_searchFilterConfig.scope == SearchScope.currentFolder) {
+      if (_searchFilterConfig.itemType == SearchItemType.notes) {
+        return 'Cari catatan di "$folderName"...';
+      } else if (_searchFilterConfig.itemType == SearchItemType.folders) {
+        return 'Cari subfolder di "$folderName"...';
+      }
+      return 'Cari di folder "$folderName"...';
+    } else {
+      if (_searchFilterConfig.itemType == SearchItemType.notes) {
+        return 'Cari di semua catatan...';
+      } else if (_searchFilterConfig.itemType == SearchItemType.folders) {
+        return 'Cari di semua folder...';
+      }
+      return 'Cari catatan & folder...';
+    }
+  }
 
-    if (results.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+  /// Search Results View across all folders or current folder
+  Widget _buildSearchResultsView() {
+    final matchedFolders = _cachedSearchFolders;
+    final matchedNotes = _cachedCurrentNotes;
+    final totalResults = matchedFolders.length + matchedNotes.length;
+
+    if (totalResults == 0) {
+      return _buildSearchEmptyState();
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 90),
+      children: [
+        // Match Summary Header
+        Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEEF2FF),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE0E7FF)),
+          ),
+          child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFEEF2FF),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.search_off_rounded,
-                  size: 40,
-                  color: Color(0xFF4F46E5),
+              const Icon(
+                Icons.check_circle_outline_rounded,
+                size: 16,
+                color: Color(0xFF4F46E5),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Ditemukan ${[
+                    if (matchedFolders.isNotEmpty) '${matchedFolders.length} folder',
+                    if (matchedNotes.isNotEmpty) '${matchedNotes.length} catatan',
+                  ].join(' dan ')} untuk "$_searchQuery"',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF3730A3),
+                  ),
                 ),
               ),
-              const SizedBox(height: 16),
-              const Text(
-                'Catatan Tidak Ditemukan',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1E293B),
+              if (!_searchFilterConfig.isDefault)
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _searchFilterConfig = const SearchFilterConfig();
+                      _recalculateFilteredItems();
+                    });
+                  },
+                  child: const Text(
+                    'Reset Filter',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF4F46E5),
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Tidak ada catatan yang cocok dengan "$_searchQuery".',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF94A3B8),
-                  height: 1.4,
-                ),
-              ),
             ],
           ),
         ),
-      );
-    }
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 90),
-      itemCount: results.length,
-      itemBuilder: (ctx, index) {
-        final note = results[index];
-        final folder = _getFolderById(note.folderId);
-        final folderPathStr = FolderUtils.getFolderPathString(
-          note.folderId,
-          _folders,
-          separator: ' > ',
-          rootLabel: 'Utama',
-        );
-        final isSelected = _selectedNoteIds.contains(note.id);
-
-        if (_isSelectionMode) {
-          return NoteCard(
-            note: note,
-            folder: folder,
-            folderPath: folderPathStr,
-            isSelectionMode: true,
-            isSelected: isSelected,
-            onTap: () => _toggleNoteSelection(note.id),
-          );
-        }
-
-        return Draggable<Object>(
-          data: note,
-          dragAnchorStrategy: (draggable, context, point) => const Offset(125, 28),
-          feedback: _buildNoteDragFeedback(note),
-          onDragStarted: () {
-            _draggedItem = note;
-          },
-          onDragUpdate: (details) {
-            _onDragUpdatePosition(details.globalPosition, isNote: true);
-          },
-          onDragEnd: (details) {
-            _handleDropOnEnd();
-          },
-          onDraggableCanceled: (velocity, offset) {
-            _handleDropOnEnd();
-          },
-          childWhenDragging: Opacity(
-            opacity: 0.35,
-            child: NoteCard(
-              note: note,
-              folder: folder,
-              folderPath: folderPathStr,
-              onTap: () => _openNoteEditor(note),
+        // 1. Folders Section (if any matched)
+        if (matchedFolders.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8, top: 4),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.folder_outlined,
+                  size: 16,
+                  color: Color(0xFF475569),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Folder (${matchedFolders.length})',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF475569),
+                  ),
+                ),
+              ],
             ),
           ),
-          child: NoteCard(
-            note: note,
-            folder: folder,
-            folderPath: folderPathStr,
-            onTap: () => _openNoteEditor(note),
-            onLongPress: () => _enterSelectionModeWithNote(note.id),
+          ...matchedFolders.map((folder) => _buildSearchFolderCard(folder)),
+          const SizedBox(height: 12),
+        ],
+
+        // 2. Notes Section (if any matched)
+        if (matchedNotes.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8, top: 4),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.note_alt_outlined,
+                  size: 16,
+                  color: Color(0xFF475569),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Catatan (${matchedNotes.length})',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF475569),
+                  ),
+                ),
+              ],
+            ),
           ),
-        );
-      },
+          ...matchedNotes.map((note) {
+            final folder = _getFolderById(note.folderId);
+            final folderPathStr = FolderUtils.getFolderPathString(
+              note.folderId,
+              _folders,
+              separator: ' > ',
+              rootLabel: 'Utama',
+            );
+            final isSelected = _selectedNoteIds.contains(note.id);
+
+            if (_isSelectionMode) {
+              return NoteCard(
+                note: note,
+                folder: folder,
+                folderPath: folderPathStr,
+                isSelectionMode: true,
+                isSelected: isSelected,
+                onTap: () => _toggleNoteSelection(note.id),
+              );
+            }
+
+            return Draggable<Object>(
+              data: note,
+              dragAnchorStrategy: (draggable, context, point) =>
+                  const Offset(125, 28),
+              feedback: _buildNoteDragFeedback(note),
+              onDragStarted: () {
+                _draggedItem = note;
+              },
+              onDragUpdate: (details) {
+                _onDragUpdatePosition(details.globalPosition, isNote: true);
+              },
+              onDragEnd: (details) {
+                _handleDropOnEnd();
+              },
+              onDraggableCanceled: (velocity, offset) {
+                _handleDropOnEnd();
+              },
+              childWhenDragging: Opacity(
+                opacity: 0.35,
+                child: NoteCard(
+                  note: note,
+                  folder: folder,
+                  folderPath: folderPathStr,
+                  onTap: () => _openNoteEditor(note),
+                ),
+              ),
+              child: NoteCard(
+                note: note,
+                folder: folder,
+                folderPath: folderPathStr,
+                onTap: () => _openNoteEditor(note),
+                onLongPress: () => _enterSelectionModeWithNote(note.id),
+              ),
+            );
+          }),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSearchFolderCard(FolderModel folder) {
+    final parentPathStr = FolderUtils.getFolderPathString(
+      folder.parentId,
+      _folders,
+      separator: ' > ',
+      rootLabel: 'Folder Utama (Root)',
+    );
+    final noteCount = _folderNoteCountMap[folder.id] ?? 0;
+    final subChildCount = _subfolderCountMap[folder.id] ?? 0;
+    final isSelected = _selectedFolderIds.contains(folder.id);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? Color(folder.colorValue).withValues(alpha: 0.08)
+            : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isSelected
+              ? Color(folder.colorValue)
+              : const Color(0xFFE2E8F0),
+          width: isSelected ? 2.0 : 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _isSelectionMode
+              ? () => _toggleFolderSelection(folder.id)
+              : () => _navigateToFolder(folder.id),
+          onLongPress: _isSelectionMode
+              ? () => _toggleFolderSelection(folder.id)
+              : () => _enterSelectionModeWithFolder(folder.id),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            child: Row(
+              children: [
+                if (_isSelectionMode) ...[
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Color(folder.colorValue)
+                          : Colors.transparent,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected
+                            ? Color(folder.colorValue)
+                            : const Color(0xFFCBD5E1),
+                        width: 2,
+                      ),
+                    ),
+                    child: isSelected
+                        ? const Icon(
+                            Icons.check_rounded,
+                            size: 13,
+                            color: Colors.white,
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: Color(folder.colorValue).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.folder_rounded,
+                    color: Color(folder.colorValue),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              folder.name,
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
+                          ),
+                          if (folder.isPinned) ...[
+                            const SizedBox(width: 4),
+                            Transform.rotate(
+                              angle: 0.45,
+                              child: Icon(
+                                Icons.push_pin_rounded,
+                                size: 13,
+                                color: Color(folder.colorValue),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.subdirectory_arrow_right_rounded,
+                            size: 13,
+                            color: Color(0xFF94A3B8),
+                          ),
+                          const SizedBox(width: 2),
+                          Expanded(
+                            child: Text(
+                              parentPathStr,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            subChildCount > 0
+                                ? '$noteCount note • $subChildCount sub'
+                                : '$noteCount catatan',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF94A3B8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                if (!_isSelectionMode)
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: Color(0xFFCBD5E1),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchEmptyState() {
+    final hasCustom = !_searchFilterConfig.isDefault;
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: Color(0xFFEEF2FF),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.search_off_rounded,
+                size: 42,
+                color: Color(0xFF4F46E5),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Tidak Ada Hasil Ditemukan',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Tidak ada item yang cocok dengan "$_searchQuery".',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF64748B),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.lightbulb_outline_rounded,
+                          size: 16, color: Color(0xFFF59E0B)),
+                      SizedBox(width: 6),
+                      Text(
+                        'Saran Pencarian:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  if (_searchFilterConfig.scope == SearchScope.currentFolder)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        '• Coba ubah cakupan ke "Semua Menyeluruh".',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      ),
+                    ),
+                  if (_searchFilterConfig.target != SearchTarget.all)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        '• Coba cari berdasarkan "Judul & Isi Teks".',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      ),
+                    ),
+                  if (_searchFilterConfig.itemType != SearchItemType.all)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        '• Coba ubah jenis item ke "Semua Jenis".',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      ),
+                    ),
+                  const Text(
+                    '• Periksa kembali ejaan kata kunci pencarian.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+            ),
+            if (hasCustom) ...[
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _searchFilterConfig = const SearchFilterConfig();
+                    _recalculateFilteredItems();
+                  });
+                },
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Reset Semua Filter'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4F46E5),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 

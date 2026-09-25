@@ -3,6 +3,7 @@ import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_app/main.dart';
 import 'package:notes_app/models/note_model.dart';
+import 'package:notes_app/services/rich_clipboard_service.dart';
 import 'package:notes_app/widgets/note_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -90,6 +91,74 @@ void main() {
 
     await tester.tap(find.text('Catatan Tes'));
     expect(tapped, isTrue);
+  });
+
+  test('Test RichClipboardService copies and pastes formatting intact', () async {
+    final doc = Document();
+    doc.insert(0, 'Hello Bold and Colored Text\n');
+    doc.format(0, 10, Attribute.bold);
+    doc.format(6, 4, const ColorAttribute('#FF0000'));
+
+    final controller = QuillController(
+      document: doc,
+      selection: const TextSelection(baseOffset: 0, extentOffset: 10),
+    );
+
+    // Copy selected text
+    await RichClipboardService.copySelection(controller);
+
+    expect(RichClipboardService.cachedPlainText, 'Hello Bold');
+    expect(RichClipboardService.cachedRichDelta, isNotNull);
+
+    // Create a target controller and paste
+    final targetDoc = Document()..insert(0, 'Start: \n');
+    final targetController = QuillController(
+      document: targetDoc,
+      selection: const TextSelection.collapsed(offset: 7),
+    );
+
+    final pasteSuccess = await RichClipboardService.paste(targetController);
+    expect(pasteSuccess, isTrue);
+
+    final resultDelta = targetController.document.toDelta();
+    final ops = resultDelta.toList();
+
+    // Verify bold and color formatting were preserved in pasted text
+    expect(ops.any((op) => op.attributes != null && op.attributes!['bold'] == true), isTrue);
+    expect(ops.any((op) => op.attributes != null && op.attributes!['color'] == '#FF0000'), isTrue);
+    expect(targetController.document.toPlainText(), contains('Start: Hello Bold'));
+  });
+
+  testWidgets('Test search filter chips and filter bottom sheet', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+
+    await tester.pumpWidget(const NotesApp());
+    await tester.pumpAndSettle();
+
+    // Verify search filter chips are visible
+    expect(find.text('Filter'), findsOneWidget);
+    expect(find.text('Semua Folder'), findsOneWidget);
+    expect(find.text('Tipe: Semua Jenis'), findsOneWidget);
+    expect(find.text('Cari di: Judul & Teks'), findsOneWidget);
+
+    // Tap the Filter button to open filter sheet
+    await tester.tap(find.text('Filter'));
+    await tester.pumpAndSettle();
+
+    // Verify filter sheet elements
+    expect(find.text('Filter Pencarian'), findsOneWidget);
+    expect(find.text('Cakupan Pencarian'), findsOneWidget);
+    expect(find.text('Jenis Item yang Dicari'), findsOneWidget);
+    expect(find.text('Cari Berdasarkan'), findsOneWidget);
+
+    final applyBtnFinder = find.text('Terapkan Filter');
+    await tester.scrollUntilVisible(
+      applyBtnFinder,
+      100,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(applyBtnFinder);
+    await tester.pumpAndSettle();
   });
 }
 
