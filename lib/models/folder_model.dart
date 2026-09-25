@@ -6,6 +6,9 @@ class FolderModel {
   final int colorValue;
   final DateTime createdAt;
   final String? parentId; // ID of parent folder if this is a subfolder
+  final bool isPinned;
+  final int accessCount;
+  final DateTime? lastAccessedAt;
 
   FolderModel({
     required this.id,
@@ -13,6 +16,9 @@ class FolderModel {
     required this.colorValue,
     required this.createdAt,
     this.parentId,
+    this.isPinned = false,
+    this.accessCount = 0,
+    this.lastAccessedAt,
   });
 
   Map<String, dynamic> toMap() {
@@ -22,6 +28,9 @@ class FolderModel {
       'colorValue': colorValue,
       'createdAt': createdAt.toIso8601String(),
       'parentId': parentId,
+      'isPinned': isPinned,
+      'accessCount': accessCount,
+      'lastAccessedAt': lastAccessedAt?.toIso8601String(),
     };
   }
 
@@ -34,6 +43,11 @@ class FolderModel {
           ? DateTime.parse(map['createdAt'])
           : DateTime.now(),
       parentId: map['parentId'],
+      isPinned: map['isPinned'] ?? false,
+      accessCount: map['accessCount'] ?? 0,
+      lastAccessedAt: map['lastAccessedAt'] != null
+          ? DateTime.tryParse(map['lastAccessedAt'])
+          : null,
     );
   }
 
@@ -49,6 +63,9 @@ class FolderModel {
     DateTime? createdAt,
     String? parentId,
     bool clearParent = false,
+    bool? isPinned,
+    int? accessCount,
+    DateTime? lastAccessedAt,
   }) {
     return FolderModel(
       id: id ?? this.id,
@@ -56,6 +73,9 @@ class FolderModel {
       colorValue: colorValue ?? this.colorValue,
       createdAt: createdAt ?? this.createdAt,
       parentId: clearParent ? null : (parentId ?? this.parentId),
+      isPinned: isPinned ?? this.isPinned,
+      accessCount: accessCount ?? this.accessCount,
+      lastAccessedAt: lastAccessedAt ?? this.lastAccessedAt,
     );
   }
 }

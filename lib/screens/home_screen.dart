@@ -234,6 +234,21 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isNavigatingForward = true;
 
   void _navigateToFolder(String? folderId) {
+    if (folderId != null) {
+      final target = _getFolderById(folderId);
+      if (target != null) {
+        final updated = target.copyWith(
+          accessCount: target.accessCount + 1,
+          lastAccessedAt: DateTime.now(),
+        );
+        _storageService.updateFolder(updated);
+        final idx = _folders.indexWhere((f) => f.id == folderId);
+        if (idx >= 0) {
+          _folders[idx] = updated;
+        }
+      }
+    }
+
     final oldDepth = _currentFolderId == null
         ? 0
         : FolderUtils.getFolderPath(_currentFolderId, _folders).length;
@@ -351,6 +366,12 @@ class _HomeScreenState extends State<HomeScreen> {
           child: FolderManageScreen(
             folders: _folders,
             notes: _allNotes,
+            onSelectFolder: (folderId) {
+              _navigateToFolder(folderId);
+            },
+            onTogglePin: (folder) async {
+              await _togglePinFolder(folder);
+            },
             onAddFolder: (f) async {
               await _storageService.addFolder(f);
               _loadData();
@@ -381,6 +402,27 @@ class _HomeScreenState extends State<HomeScreen> {
         reverseTransitionDuration: const Duration(milliseconds: 180),
       ),
     ).then((_) => _loadData());
+  }
+
+  Future<void> _togglePinFolder(FolderModel folder) async {
+    final updated = folder.copyWith(isPinned: !folder.isPinned);
+    await _storageService.updateFolder(updated);
+    await _loadData();
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            updated.isPinned
+                ? 'Folder "${folder.name}" disematkan ke atas'
+                : 'Sematan folder "${folder.name}" dilepas',
+          ),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
   }
 
   Future<void> _moveNote(NoteModel note) async {
@@ -731,6 +773,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () {
                     Navigator.pop(ctx);
                     _enterSelectionModeWithFolder(folder.id);
+                  },
+                ),
+                const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
+
+                // Option: Pin / Unpin Folder
+                _buildBottomSheetActionTile(
+                  label: folder.isPinned ? 'Lepas Sematan (Unpin)' : 'Sematkan Folder (Pin)',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _togglePinFolder(folder);
                   },
                 ),
                 const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
@@ -2476,6 +2528,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildFolderContentView() {
     final subfolders = _currentSubfolders;
     final notes = _currentNotes;
+    final isRoot = _currentFolderId == null;
+    final displayedFolders = isRoot ? subfolders.take(4).toList() : subfolders;
 
     if (subfolders.isEmpty && notes.isEmpty) {
       return _buildEmptyState();
@@ -2490,7 +2544,9 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'FOLDER (${subfolders.length})',
+                isRoot
+                    ? 'FOLDER (${subfolders.length})'
+                    : 'SUBFOLDER (${subfolders.length})',
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -2498,35 +2554,62 @@ class _HomeScreenState extends State<HomeScreen> {
                   letterSpacing: 0.8,
                 ),
               ),
-              InkWell(
-                onTap: () => _showCreateFolderDialog(),
-                borderRadius: BorderRadius.circular(8),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.add_rounded,
-                        size: 14,
-                        color: Color(0xFF4F46E5),
-                      ),
-                      SizedBox(width: 2),
-                      Text(
-                        'Subfolder Baru',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+              if (isRoot)
+                InkWell(
+                  onTap: () => _openManageFolders(),
+                  borderRadius: BorderRadius.circular(8),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Lihat Semua',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF4F46E5),
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 11,
                           color: Color(0xFF4F46E5),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                  ),
+                )
+              else
+                InkWell(
+                  onTap: () => _showCreateFolderDialog(),
+                  borderRadius: BorderRadius.circular(8),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.add_rounded,
+                          size: 14,
+                          color: Color(0xFF4F46E5),
+                        ),
+                        SizedBox(width: 2),
+                        Text(
+                          'Subfolder Baru',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF4F46E5),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 10),
-          _buildSubfoldersGrid(subfolders),
+          _buildSubfoldersGrid(displayedFolders),
           const SizedBox(height: 20),
         ],
 
@@ -2846,17 +2929,34 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          folder.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: isDropHovered
-                                ? Color(folder.colorValue)
-                                : const Color(0xFF1E293B),
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                folder.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDropHovered
+                                      ? Color(folder.colorValue)
+                                      : const Color(0xFF1E293B),
+                                ),
+                              ),
+                            ),
+                            if (folder.isPinned) ...[
+                              const SizedBox(width: 4),
+                              Transform.rotate(
+                                angle: 0.45,
+                                child: Icon(
+                                  Icons.push_pin_rounded,
+                                  size: 13,
+                                  color: Color(folder.colorValue),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: 2),
                         Text(

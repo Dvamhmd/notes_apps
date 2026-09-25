@@ -9,6 +9,8 @@ class FolderManageScreen extends StatefulWidget {
   final List<NoteModel> notes;
   final Function(FolderModel) onAddFolder;
   final Function(String folderId, bool deleteNotes) onDeleteFolder;
+  final Function(String? folderId)? onSelectFolder;
+  final Function(FolderModel folder)? onTogglePin;
 
   const FolderManageScreen({
     super.key,
@@ -16,6 +18,8 @@ class FolderManageScreen extends StatefulWidget {
     required this.notes,
     required this.onAddFolder,
     required this.onDeleteFolder,
+    this.onSelectFolder,
+    this.onTogglePin,
   });
 
   @override
@@ -86,6 +90,17 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
         }
       });
     }
+  }
+
+  void _togglePin(FolderModel folder) {
+    final updated = folder.copyWith(isPinned: !folder.isPinned);
+    setState(() {
+      final idx = _folders.indexWhere((f) => f.id == folder.id);
+      if (idx >= 0) {
+        _folders[idx] = updated;
+      }
+    });
+    widget.onTogglePin?.call(folder);
   }
 
   void _confirmDeleteFolder(FolderModel folder) {
@@ -341,7 +356,7 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'Kelola Folder',
+          'Semua Folder',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -365,7 +380,7 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
               color: Color(0xFF4F46E5),
               size: 24,
             ),
-            tooltip: 'Tambah Folder Root',
+            tooltip: 'Tambah Folder Induk',
             onPressed: () => _createNewFolder(),
           ),
           const SizedBox(width: 8),
@@ -378,52 +393,67 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             children: [
               // Unassigned Folder item
-              Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(12),
+              InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  if (widget.onSelectFolder != null) {
+                    Navigator.pop(context);
+                    widget.onSelectFolder!(null);
+                  }
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.inbox_rounded,
+                          color: Color(0xFF64748B),
+                          size: 22,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.inbox_rounded,
-                        color: Color(0xFF64748B),
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Tanpa Folder (Utama)',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF1E293B),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Tanpa Folder (Utama)',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1E293B),
+                              ),
                             ),
-                          ),
-                          Text(
-                            '${_getDirectNoteCount(null)} catatan',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF94A3B8),
+                            Text(
+                              '${_getDirectNoteCount(null)} catatan',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF94A3B8),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      if (widget.onSelectFolder != null)
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                          color: Color(0xFFCBD5E1),
+                        ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -489,16 +519,19 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
                   return Container(
                     margin: EdgeInsets.only(bottom: 10, left: indentLeft),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
+                      horizontal: 10,
+                      vertical: 10,
                     ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: node.depth > 0
-                            ? const Color(0xFFE2E8F0)
-                            : const Color(0xFFCBD5E1),
+                        color: folder.isPinned
+                            ? Color(folder.colorValue).withValues(alpha: 0.4)
+                            : (node.depth > 0
+                                ? const Color(0xFFE2E8F0)
+                                : const Color(0xFFCBD5E1)),
+                        width: folder.isPinned ? 1.5 : 1.0,
                       ),
                     ),
                     child: Row(
@@ -528,76 +561,128 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
                             ),
                           )
                         else
-                          const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.all(9),
-                          decoration: BoxDecoration(
-                            color: Color(folder.colorValue).withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.folder_rounded,
-                            color: Color(folder.colorValue),
-                            size: 20,
+                          const SizedBox(width: 4),
+                        InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () {
+                            if (widget.onSelectFolder != null) {
+                              Navigator.pop(context);
+                              widget.onSelectFolder!(folder.id);
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(9),
+                            decoration: BoxDecoration(
+                              color: Color(folder.colorValue).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.folder_rounded,
+                              color: Color(folder.colorValue),
+                              size: 20,
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                folder.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: node.depth == 0
-                                      ? FontWeight.w700
-                                      : FontWeight.w600,
-                                  color: const Color(0xFF1E293B),
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Row(
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: () {
+                              if (widget.onSelectFolder != null) {
+                                Navigator.pop(context);
+                                widget.onSelectFolder!(folder.id);
+                              }
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    '$noteCount catatan',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Color(0xFF94A3B8),
-                                    ),
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          folder.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: node.depth == 0
+                                                ? FontWeight.w700
+                                                : FontWeight.w600,
+                                            color: const Color(0xFF1E293B),
+                                          ),
+                                        ),
+                                      ),
+                                      if (folder.isPinned) ...[
+                                        const SizedBox(width: 6),
+                                        Transform.rotate(
+                                          angle: 0.45,
+                                          child: Icon(
+                                            Icons.push_pin_rounded,
+                                            size: 13,
+                                            color: Color(folder.colorValue),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
-                                  if (subfolderCount > 0) ...[
-                                    const Text(
-                                      ' • ',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Color(0xFFCBD5E1),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        '$noteCount catatan',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF94A3B8),
+                                        ),
                                       ),
-                                    ),
-                                    Text(
-                                      '$subfolderCount subfolder${!isExpanded ? ' (ditutup)' : ''}',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w500,
-                                        color: !isExpanded
-                                            ? const Color(0xFF4F46E5)
-                                            : const Color(0xFF64748B),
-                                      ),
-                                    ),
-                                  ],
+                                      if (subfolderCount > 0) ...[
+                                        const Text(
+                                          ' • ',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Color(0xFFCBD5E1),
+                                          ),
+                                        ),
+                                        Text(
+                                          '$subfolderCount subfolder${!isExpanded ? ' (ditutup)' : ''}',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                            color: !isExpanded
+                                                ? const Color(0xFF4F46E5)
+                                                : const Color(0xFF64748B),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
                                 ],
                               ),
-                            ],
+                            ),
                           ),
+                        ),
+                        // Pin / Unpin button
+                        IconButton(
+                          icon: Icon(
+                            folder.isPinned
+                                ? Icons.push_pin_rounded
+                                : Icons.push_pin_outlined,
+                            color: folder.isPinned
+                                ? Color(folder.colorValue)
+                                : const Color(0xFF94A3B8),
+                            size: 19,
+                          ),
+                          tooltip: folder.isPinned ? 'Lepas Sematan' : 'Sematkan Folder',
+                          onPressed: () => _togglePin(folder),
                         ),
                         // Quick add subfolder button
                         IconButton(
                           icon: const Icon(
                             Icons.add_circle_outline_rounded,
                             color: Color(0xFF4F46E5),
-                            size: 20,
+                            size: 19,
                           ),
                           tooltip: 'Tambah Subfolder di sini',
                           onPressed: () => _createNewFolder(parentId: folder.id),
@@ -606,7 +691,7 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
                           icon: const Icon(
                             Icons.delete_outline_rounded,
                             color: Color(0xFFEF4444),
-                            size: 20,
+                            size: 19,
                           ),
                           tooltip: 'Hapus Folder',
                           onPressed: () => _confirmDeleteFolder(folder),

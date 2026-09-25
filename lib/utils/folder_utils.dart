@@ -42,12 +42,39 @@ class FolderUtils {
     return path.map((f) => f.name).join(separator);
   }
 
+  /// Sort folders: Pinned first, then most accessed (accessCount desc), then last accessed desc, then createdAt desc
+  static List<FolderModel> sortFolders(List<FolderModel> folders) {
+    final list = List<FolderModel>.from(folders);
+    list.sort((a, b) {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      if (b.accessCount != a.accessCount) {
+        return b.accessCount.compareTo(a.accessCount);
+      }
+      if (a.lastAccessedAt != null && b.lastAccessedAt != null) {
+        final cmp = b.lastAccessedAt!.compareTo(a.lastAccessedAt!);
+        if (cmp != 0) return cmp;
+      } else if (b.lastAccessedAt != null) {
+        return 1;
+      } else if (a.lastAccessedAt != null) {
+        return -1;
+      }
+      return b.createdAt.compareTo(a.createdAt);
+    });
+    return list;
+  }
+
   /// Returns direct subfolders of the given parent (null for root)
   static List<FolderModel> getSubfolders(
     String? parentId,
-    List<FolderModel> allFolders,
-  ) {
-    return allFolders.where((f) => f.parentId == parentId).toList();
+    List<FolderModel> allFolders, {
+    bool sorted = true,
+  }) {
+    final direct = allFolders.where((f) => f.parentId == parentId).toList();
+    if (sorted) {
+      return sortFolders(direct);
+    }
+    return direct;
   }
 
   /// Returns all descendant folder IDs (children, grandchildren, etc.)
@@ -81,10 +108,11 @@ class FolderUtils {
     final List<FolderTreeItem> items = [];
 
     void traverse(String? parentId, int depth) {
-      final children = allFolders
-          .where((f) => f.parentId == parentId && !excludedIds.contains(f.id))
-          .toList()
-        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      final children = getSubfolders(
+        parentId,
+        allFolders.where((f) => !excludedIds.contains(f.id)).toList(),
+        sorted: true,
+      );
 
       for (final child in children) {
         items.add(FolderTreeItem(folder: child, depth: depth));
@@ -106,10 +134,11 @@ class FolderUtils {
         : {};
 
     List<FolderTreeNode> getChildren(String? parentId, int depth) {
-      final subfolders = allFolders
-          .where((f) => f.parentId == parentId && !excludedIds.contains(f.id))
-          .toList()
-        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      final subfolders = getSubfolders(
+        parentId,
+        allFolders.where((f) => !excludedIds.contains(f.id)).toList(),
+        sorted: true,
+      );
 
       return subfolders.map((folder) {
         return FolderTreeNode(
