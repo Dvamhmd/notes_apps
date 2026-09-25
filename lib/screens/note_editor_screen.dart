@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../models/folder_model.dart';
 import '../models/note_model.dart';
 import '../utils/folder_utils.dart';
@@ -383,15 +382,17 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                     selectionControls: CustomTouchTextSelectionControls.instance,
                     enableInteractiveSelection: true,
                     textCapitalization: TextCapitalization.sentences,
-                    style: GoogleFonts.plusJakartaSans(
+                    style: const TextStyle(
+                      fontFamily: 'Poppins',
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF0F172A),
+                      color: Color(0xFF0F172A),
                     ),
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       hintText: 'Judul Catatan...',
-                      hintStyle: GoogleFonts.plusJakartaSans(
-                        color: const Color(0xFF94A3B8),
+                      hintStyle: TextStyle(
+                        fontFamily: 'Poppins',
+                        color: Color(0xFF94A3B8),
                         fontSize: 22,
                         fontWeight: FontWeight.w600,
                       ),
@@ -434,7 +435,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                         },
                         customStyles: DefaultStyles(
                           paragraph: DefaultTextBlockStyle(
-                            GoogleFonts.plusJakartaSans(
+                            TextStyle(
+                              fontFamily: 'Poppins',
                               fontSize: 15,
                               color: const Color(0xFF1E293B),
                               height: _lineSpacing,
@@ -445,7 +447,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                             null,
                           ),
                           h1: DefaultTextBlockStyle(
-                            GoogleFonts.plusJakartaSans(
+                            TextStyle(
+                              fontFamily: 'Poppins',
                               fontSize: 24,
                               fontWeight: FontWeight.w700,
                               color: const Color(0xFF0F172A),
@@ -457,7 +460,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                             null,
                           ),
                           h2: DefaultTextBlockStyle(
-                            GoogleFonts.plusJakartaSans(
+                            TextStyle(
+                              fontFamily: 'Poppins',
                               fontSize: 20,
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF1E293B),
@@ -469,7 +473,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                             null,
                           ),
                           h3: DefaultTextBlockStyle(
-                            GoogleFonts.plusJakartaSans(
+                            TextStyle(
+                              fontFamily: 'Poppins',
                               fontSize: 17,
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF334155),
@@ -481,7 +486,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                             null,
                           ),
                           lists: DefaultListBlockStyle(
-                            GoogleFonts.plusJakartaSans(
+                            TextStyle(
+                              fontFamily: 'Poppins',
                               fontSize: 15,
                               color: const Color(0xFF1E293B),
                               height: _lineSpacing,

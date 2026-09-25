@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class LineSpacingSheet extends StatefulWidget {
   final double currentSpacing;
@@ -361,7 +360,8 @@ class _LineSpacingSheetState extends State<LineSpacingSheet> {
                   const SizedBox(height: 8),
                   AnimatedDefaultTextStyle(
                     duration: const Duration(milliseconds: 100),
-                    style: GoogleFonts.plusJakartaSans(
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
                       fontSize: 13,
                       height: _spacing,
                       color: const Color(0xFF1E293B),

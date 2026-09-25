@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'screens/home_screen.dart';
 
 void main() {
@@ -28,6 +27,7 @@ class NotesApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
+        fontFamily: 'Poppins',
         brightness: Brightness.light,
         scaffoldBackgroundColor: const Color(0xFFF8FAFC),
         colorScheme: ColorScheme.fromSeed(
@@ -37,8 +37,8 @@ class NotesApp extends StatelessWidget {
           surface: Colors.white,
           surfaceTint: Colors.transparent,
         ),
-        textTheme: GoogleFonts.plusJakartaSansTextTheme(
-          ThemeData.light().textTheme,
+        textTheme: ThemeData.light().textTheme.apply(
+          fontFamily: 'Poppins',
         ),
         textSelectionTheme: TextSelectionThemeData(
           cursorColor: const Color(0xFF4F46E5),

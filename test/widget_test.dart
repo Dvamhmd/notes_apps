@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:notes_app/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -29,7 +28,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(
-          textTheme: GoogleFonts.plusJakartaSansTextTheme(),
+          fontFamily: 'Poppins',
         ),
         home: Scaffold(
           body: QuillEditor.basic(
@@ -56,6 +55,9 @@ void main() {
     expect(richTextFinder, findsWidgets);
   });
 }
+
+
+
 
 
 
