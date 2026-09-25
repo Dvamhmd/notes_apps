@@ -4,6 +4,10 @@ import '../models/folder_model.dart';
 import '../models/note_model.dart';
 
 class NoteCard extends StatelessWidget {
+  static final DateFormat _timeFormat = DateFormat('HH:mm');
+  static final DateFormat _monthFormat = DateFormat('d MMM', 'id_ID');
+  static final DateFormat _yearFormat = DateFormat('d MMM yyyy', 'id_ID');
+
   final NoteModel note;
   final FolderModel? folder;
   final String? folderPath;
@@ -29,18 +33,24 @@ class NoteCard extends StatelessWidget {
     final noteDate = DateTime(date.year, date.month, date.day);
 
     if (today == noteDate) {
-      return 'Hari ini, ${DateFormat('HH:mm').format(date)}';
+      return 'Hari ini, ${_timeFormat.format(date)}';
     } else if (today.difference(noteDate).inDays == 1) {
-      return 'Kemarin, ${DateFormat('HH:mm').format(date)}';
+      return 'Kemarin, ${_timeFormat.format(date)}';
     } else if (today.year == date.year) {
-      return DateFormat('d MMM', 'id_ID').format(date);
+      return _monthFormat.format(date);
     } else {
-      return DateFormat('d MMM yyyy', 'id_ID').format(date);
+      return _yearFormat.format(date);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: _buildCardContent(),
+    );
+  }
+
+  Widget _buildCardContent() {
     final borderColor = isSelectionMode
         ? (isSelected ? const Color(0xFF4F46E5) : const Color(0xFFE2E8F0))
         : (note.isPinned ? const Color(0xFFC7D2FE) : const Color(0xFFE2E8F0));

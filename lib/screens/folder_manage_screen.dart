@@ -25,6 +25,7 @@ class FolderManageScreen extends StatefulWidget {
 class _FolderManageScreenState extends State<FolderManageScreen> {
   late List<FolderModel> _folders;
   late Set<String> _expandedFolderIds;
+  late Map<String?, int> _noteCountMap;
 
   @override
   void initState() {
@@ -32,13 +33,19 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
     _folders = List.from(widget.folders);
     // Closed by default so hierarchy is compact
     _expandedFolderIds = <String>{};
+    _buildNoteCountMap();
+  }
+
+  void _buildNoteCountMap() {
+    final map = <String?, int>{};
+    for (final n in widget.notes) {
+      map[n.folderId] = (map[n.folderId] ?? 0) + 1;
+    }
+    _noteCountMap = map;
   }
 
   int _getDirectNoteCount(String? folderId) {
-    if (folderId == null) {
-      return widget.notes.where((n) => n.folderId == null).length;
-    }
-    return widget.notes.where((n) => n.folderId == folderId).length;
+    return _noteCountMap[folderId] ?? 0;
   }
 
   void _toggleFolder(String folderId) {

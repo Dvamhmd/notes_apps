@@ -131,6 +131,64 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  Map<String, FolderModel> _folderMap = {};
+  Map<String, int> _folderNoteCountMap = {};
+  Map<String, int> _subfolderCountMap = {};
+  List<NoteModel> _cachedCurrentNotes = [];
+  List<FolderModel> _cachedCurrentSubfolders = [];
+
+  void _recalculateDerivedData() {
+    _folderMap = {for (final f in _folders) f.id: f};
+
+    final noteCounts = <String, int>{};
+    for (final n in _allNotes) {
+      if (n.folderId != null) {
+        noteCounts[n.folderId!] = (noteCounts[n.folderId!] ?? 0) + 1;
+      }
+    }
+    _folderNoteCountMap = noteCounts;
+
+    final subCounts = <String, int>{};
+    for (final f in _folders) {
+      if (f.parentId != null) {
+        subCounts[f.parentId!] = (subCounts[f.parentId!] ?? 0) + 1;
+      }
+    }
+    _subfolderCountMap = subCounts;
+
+    _cachedCurrentSubfolders = FolderUtils.getSubfolders(_currentFolderId, _folders);
+    _recalculateFilteredNotes();
+  }
+
+  void _recalculateFilteredNotes() {
+    if (_searchQuery.trim().isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      final list = _allNotes.where((n) {
+        final matchTitle = n.title.toLowerCase().contains(q);
+        final matchContent = n.plainText.toLowerCase().contains(q);
+        return matchTitle || matchContent;
+      }).toList();
+
+      list.sort((a, b) {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return b.updatedAt.compareTo(a.updatedAt);
+      });
+      _cachedCurrentNotes = list;
+    } else {
+      final list = _allNotes
+          .where((n) => n.folderId == _currentFolderId)
+          .toList();
+
+      list.sort((a, b) {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return b.updatedAt.compareTo(a.updatedAt);
+      });
+      _cachedCurrentNotes = list;
+    }
+  }
+
   Future<void> _loadData() async {
     await _storageService.initializeDefaultsIfNeeded();
     final notes = await _storageService.getNotes();
@@ -146,6 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
             !_folders.any((f) => f.id == _currentFolderId)) {
           _currentFolderId = null;
         }
+        _recalculateDerivedData();
       });
       _autoScrollBreadcrumbToEnd();
     }
@@ -165,46 +224,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   FolderModel? _getFolderById(String? id) {
     if (id == null) return null;
-    try {
-      return _folders.firstWhere((f) => f.id == id);
-    } catch (_) {
-      return null;
-    }
+    return _folderMap[id];
   }
 
-  List<FolderModel> get _currentSubfolders {
-    return FolderUtils.getSubfolders(_currentFolderId, _folders);
-  }
+  List<FolderModel> get _currentSubfolders => _cachedCurrentSubfolders;
 
-  List<NoteModel> get _currentNotes {
-    if (_searchQuery.trim().isNotEmpty) {
-      final q = _searchQuery.toLowerCase();
-      final list = _allNotes.where((n) {
-        final matchTitle = n.title.toLowerCase().contains(q);
-        final matchContent = n.plainText.toLowerCase().contains(q);
-        return matchTitle || matchContent;
-      }).toList();
-
-      list.sort((a, b) {
-        if (a.isPinned && !b.isPinned) return -1;
-        if (!a.isPinned && b.isPinned) return 1;
-        return b.updatedAt.compareTo(a.updatedAt);
-      });
-      return list;
-    }
-
-    final list = _allNotes
-        .where((n) => n.folderId == _currentFolderId)
-        .toList();
-
-    list.sort((a, b) {
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      return b.updatedAt.compareTo(a.updatedAt);
-    });
-
-    return list;
-  }
+  List<NoteModel> get _currentNotes => _cachedCurrentNotes;
 
   bool _isNavigatingForward = true;
 
@@ -221,6 +246,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _currentFolderId = folderId;
       _searchQuery = '';
       _searchController.clear();
+      _cachedCurrentSubfolders = FolderUtils.getSubfolders(_currentFolderId, _folders);
+      _recalculateFilteredNotes();
     });
     _autoScrollBreadcrumbToEnd();
   }
@@ -265,23 +292,40 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _openNoteEditor(NoteModel note) {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (ctx) => NoteEditorScreen(
-          note: note,
-          folders: _folders,
-          onSave: (updated) async {
-            await _storageService.saveOrUpdateNote(updated);
-            _loadData();
-          },
-          onDelete: (id) async {
-            await _storageService.deleteNote(id);
-            _loadData();
-          },
-          onFolderCreated: (newFolder) async {
-            await _storageService.addFolder(newFolder);
-            _loadData();
-          },
+      PageRouteBuilder(
+        pageBuilder: (ctx, animation, secondaryAnimation) => RepaintBoundary(
+          child: NoteEditorScreen(
+            note: note,
+            folders: _folders,
+            onSave: (updated) async {
+              await _storageService.saveOrUpdateNote(updated);
+              _loadData();
+            },
+            onDelete: (id) async {
+              await _storageService.deleteNote(id);
+              _loadData();
+            },
+            onFolderCreated: (newFolder) async {
+              await _storageService.addFolder(newFolder);
+              _loadData();
+            },
+          ),
         ),
+        transitionsBuilder: (ctx, animation, secondaryAnimation, child) {
+          final curve = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+          return FadeTransition(
+            opacity: curve,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.04, 0),
+                end: Offset.zero,
+              ).animate(curve),
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 200),
+        reverseTransitionDuration: const Duration(milliseconds: 180),
       ),
     ).then((_) => _loadData());
   }
@@ -302,22 +346,39 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _openManageFolders() {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (ctx) => FolderManageScreen(
-          folders: _folders,
-          notes: _allNotes,
-          onAddFolder: (f) async {
-            await _storageService.addFolder(f);
-            _loadData();
-          },
-          onDeleteFolder: (id, deleteNotes) async {
-            await _storageService.deleteFolder(id, deleteNotes: deleteNotes);
-            if (_currentFolderId == id) {
-              _currentFolderId = null;
-            }
-            _loadData();
-          },
+      PageRouteBuilder(
+        pageBuilder: (ctx, animation, secondaryAnimation) => RepaintBoundary(
+          child: FolderManageScreen(
+            folders: _folders,
+            notes: _allNotes,
+            onAddFolder: (f) async {
+              await _storageService.addFolder(f);
+              _loadData();
+            },
+            onDeleteFolder: (id, deleteNotes) async {
+              await _storageService.deleteFolder(id, deleteNotes: deleteNotes);
+              if (_currentFolderId == id) {
+                _currentFolderId = null;
+              }
+              _loadData();
+            },
+          ),
         ),
+        transitionsBuilder: (ctx, animation, secondaryAnimation, child) {
+          final curve = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+          return FadeTransition(
+            opacity: curve,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.04, 0),
+                end: Offset.zero,
+              ).animate(curve),
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 200),
+        reverseTransitionDuration: const Duration(milliseconds: 180),
       ),
     ).then((_) => _loadData());
   }
@@ -1850,8 +1911,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: _searchQuery.isNotEmpty
                             ? _buildSearchResultsView()
                             : AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 260),
-                                reverseDuration: const Duration(milliseconds: 220),
+                                duration: const Duration(milliseconds: 180),
+                                reverseDuration: const Duration(milliseconds: 150),
                                 switchInCurve: Curves.easeOutCubic,
                                 switchOutCurve: Curves.easeInCubic,
                                 layoutBuilder: (currentChild, previousChildren) {
@@ -1868,25 +1929,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ValueKey(_currentFolderId ?? '__ROOT__');
 
                                   final double beginX = _isNavigatingForward
-                                      ? (isIncoming ? 0.06 : -0.06)
-                                      : (isIncoming ? -0.06 : 0.06);
+                                      ? (isIncoming ? 0.03 : -0.03)
+                                      : (isIncoming ? -0.03 : 0.03);
 
                                   final slideAnimation = Tween<Offset>(
                                     begin: Offset(beginX, 0),
                                     end: Offset.zero,
                                   ).animate(animation);
 
-                                  final scaleAnimation = Tween<double>(
-                                    begin: isIncoming ? 0.97 : 1.0,
-                                    end: isIncoming ? 1.0 : 0.97,
-                                  ).animate(animation);
-
-                                  return FadeTransition(
-                                    opacity: animation,
-                                    child: SlideTransition(
-                                      position: slideAnimation,
-                                      child: ScaleTransition(
-                                        scale: scaleAnimation,
+                                  return RepaintBoundary(
+                                    child: FadeTransition(
+                                      opacity: animation,
+                                      child: SlideTransition(
+                                        position: slideAnimation,
                                         child: child,
                                       ),
                                     ),
@@ -2612,10 +2667,8 @@ class _HomeScreenState extends State<HomeScreen> {
           itemCount: subfolders.length,
           itemBuilder: (ctx, index) {
             final folder = subfolders[index];
-            final noteCount =
-                _allNotes.where((n) => n.folderId == folder.id).length;
-            final subChildCount =
-                _folders.where((f) => f.parentId == folder.id).length;
+            final noteCount = _folderNoteCountMap[folder.id] ?? 0;
+            final subChildCount = _subfolderCountMap[folder.id] ?? 0;
             final isSelected = _selectedFolderIds.contains(folder.id);
 
             if (_isSelectionMode) {
@@ -2707,136 +2760,138 @@ class _HomeScreenState extends State<HomeScreen> {
             ? Color(folder.colorValue).withValues(alpha: 0.18)
             : Colors.white);
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      transform: isDropHovered
-          ? Matrix4.diagonal3Values(1.03, 1.03, 1.0)
-          : Matrix4.identity(),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: borderColor,
-          width: (isSelectionMode && isSelected) || isDropHovered ? 2.0 : 1.0,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isDropHovered
-                ? Color(folder.colorValue).withValues(alpha: 0.2)
-                : (isSelectionMode && isSelected
-                    ? Color(folder.colorValue).withValues(alpha: 0.12)
-                    : const Color(0xFF0F172A).withValues(alpha: 0.02)),
-            blurRadius: isDropHovered || (isSelectionMode && isSelected) ? 10 : 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap ?? () => _navigateToFolder(folder.id),
-          onLongPress: onLongPress,
+    return RepaintBoundary(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        transform: isDropHovered
+            ? Matrix4.diagonal3Values(1.03, 1.03, 1.0)
+            : Matrix4.identity(),
+        decoration: BoxDecoration(
+          color: cardBg,
           borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Row(
-              children: [
-                if (isSelectionMode) ...[
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? Color(folder.colorValue)
-                          : Colors.transparent,
-                      shape: BoxShape.circle,
-                      border: Border.all(
+          border: Border.all(
+            color: borderColor,
+            width: (isSelectionMode && isSelected) || isDropHovered ? 2.0 : 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isDropHovered
+                  ? Color(folder.colorValue).withValues(alpha: 0.2)
+                  : (isSelectionMode && isSelected
+                      ? Color(folder.colorValue).withValues(alpha: 0.12)
+                      : const Color(0xFF0F172A).withValues(alpha: 0.02)),
+              blurRadius: isDropHovered || (isSelectionMode && isSelected) ? 10 : 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap ?? () => _navigateToFolder(folder.id),
+            onLongPress: onLongPress,
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Row(
+                children: [
+                  if (isSelectionMode) ...[
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
                         color: isSelected
                             ? Color(folder.colorValue)
-                            : const Color(0xFFCBD5E1),
-                        width: 2,
+                            : Colors.transparent,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isSelected
+                              ? Color(folder.colorValue)
+                              : const Color(0xFFCBD5E1),
+                          width: 2,
+                        ),
                       ),
+                      child: isSelected
+                          ? const Icon(
+                              Icons.check_rounded,
+                              size: 13,
+                              color: Colors.white,
+                            )
+                          : null,
                     ),
-                    child: isSelected
-                        ? const Icon(
-                            Icons.check_rounded,
-                            size: 13,
-                            color: Colors.white,
-                          )
-                        : null,
+                    const SizedBox(width: 8),
+                  ],
+                  Container(
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(
+                      color: isDropHovered
+                          ? Color(folder.colorValue)
+                          : Color(folder.colorValue).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      isDropHovered
+                          ? Icons.file_download_rounded
+                          : Icons.folder_rounded,
+                      color: isDropHovered
+                          ? Colors.white
+                          : Color(folder.colorValue),
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          folder.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: isDropHovered
+                                ? Color(folder.colorValue)
+                                : const Color(0xFF1E293B),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          isDropHovered
+                              ? 'Pindahkan ke sini'
+                              : (subChildCount > 0
+                                  ? '$noteCount note • $subChildCount sub'
+                                  : '$noteCount catatan'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isDropHovered
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: isDropHovered
+                                ? Color(folder.colorValue)
+                                : const Color(0xFF94A3B8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!isSelectionMode)
+                    Icon(
+                      isDropHovered
+                          ? Icons.arrow_downward_rounded
+                          : Icons.chevron_right_rounded,
+                      size: 16,
+                      color: isDropHovered
+                          ? Color(folder.colorValue)
+                          : const Color(0xFFCBD5E1),
+                    ),
                 ],
-                Container(
-                  padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(
-                    color: isDropHovered
-                        ? Color(folder.colorValue)
-                        : Color(folder.colorValue).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    isDropHovered
-                        ? Icons.file_download_rounded
-                        : Icons.folder_rounded,
-                    color: isDropHovered
-                        ? Colors.white
-                        : Color(folder.colorValue),
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        folder.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: isDropHovered
-                              ? Color(folder.colorValue)
-                              : const Color(0xFF1E293B),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        isDropHovered
-                            ? 'Pindahkan ke sini'
-                            : (subChildCount > 0
-                                ? '$noteCount note • $subChildCount sub'
-                                : '$noteCount catatan'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: isDropHovered
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: isDropHovered
-                              ? Color(folder.colorValue)
-                              : const Color(0xFF94A3B8),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (!isSelectionMode)
-                  Icon(
-                    isDropHovered
-                        ? Icons.arrow_downward_rounded
-                        : Icons.chevron_right_rounded,
-                    size: 16,
-                    color: isDropHovered
-                        ? Color(folder.colorValue)
-                        : const Color(0xFFCBD5E1),
-                  ),
-              ],
+              ),
             ),
           ),
         ),
