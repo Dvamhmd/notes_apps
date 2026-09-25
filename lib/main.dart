@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/home_screen.dart';
 
@@ -36,8 +37,13 @@ class NotesApp extends StatelessWidget {
           surface: Colors.white,
           surfaceTint: Colors.transparent,
         ),
-        textTheme: GoogleFonts.poppinsTextTheme(
+        textTheme: GoogleFonts.plusJakartaSansTextTheme(
           ThemeData.light().textTheme,
+        ),
+        textSelectionTheme: TextSelectionThemeData(
+          cursorColor: const Color(0xFF4F46E5),
+          selectionColor: const Color(0xFF4F46E5).withValues(alpha: 0.35),
+          selectionHandleColor: const Color(0xFF4F46E5),
         ),
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFFF8FAFC),
@@ -51,6 +57,7 @@ class NotesApp extends StatelessWidget {
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
+        FlutterQuillLocalizations.delegate,
       ],
       supportedLocales: const [
         Locale('id', 'ID'),

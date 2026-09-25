@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/folder_model.dart';
 import '../models/note_model.dart';
 import '../utils/folder_utils.dart';
+import '../widgets/custom_selection_controls.dart';
 import '../widgets/custom_toolbar.dart';
 import '../widgets/line_spacing_sheet.dart';
 import '../widgets/move_note_dialog.dart';
@@ -379,15 +380,17 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
                   child: TextField(
                     controller: _titleController,
+                    selectionControls: CustomTouchTextSelectionControls.instance,
+                    enableInteractiveSelection: true,
                     textCapitalization: TextCapitalization.sentences,
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF0F172A),
                     ),
                     decoration: InputDecoration(
                       hintText: 'Judul Catatan...',
-                      hintStyle: GoogleFonts.poppins(
+                      hintStyle: GoogleFonts.plusJakartaSans(
                         color: const Color(0xFF94A3B8),
                         fontSize: 22,
                         fontWeight: FontWeight.w600,
@@ -411,9 +414,27 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                     child: QuillEditor.basic(
                       controller: _quillController,
                       config: QuillEditorConfig(
+                        enableInteractiveSelection: true,
+                        showCursor: true,
+                        paintCursorAboveText: true,
+                        enableSelectionToolbar: true,
+                        textSelectionControls: CustomTouchTextSelectionControls.instance,
+                        scrollable: true,
+                        expands: true,
+                        padding: const EdgeInsets.only(bottom: 80),
+                        customStyleBuilder: (Attribute attribute) {
+                          if (attribute.key == Attribute.underline.key) {
+                            return const TextStyle(
+                              decoration: TextDecoration.underline,
+                              decorationThickness: 1.3,
+                              decorationStyle: TextDecorationStyle.solid,
+                            );
+                          }
+                          return const TextStyle();
+                        },
                         customStyles: DefaultStyles(
                           paragraph: DefaultTextBlockStyle(
-                            GoogleFonts.poppins(
+                            GoogleFonts.plusJakartaSans(
                               fontSize: 15,
                               color: const Color(0xFF1E293B),
                               height: _lineSpacing,
@@ -424,7 +445,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                             null,
                           ),
                           h1: DefaultTextBlockStyle(
-                            GoogleFonts.poppins(
+                            GoogleFonts.plusJakartaSans(
                               fontSize: 24,
                               fontWeight: FontWeight.w700,
                               color: const Color(0xFF0F172A),
@@ -436,7 +457,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                             null,
                           ),
                           h2: DefaultTextBlockStyle(
-                            GoogleFonts.poppins(
+                            GoogleFonts.plusJakartaSans(
                               fontSize: 20,
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF1E293B),
@@ -448,7 +469,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                             null,
                           ),
                           h3: DefaultTextBlockStyle(
-                            GoogleFonts.poppins(
+                            GoogleFonts.plusJakartaSans(
                               fontSize: 17,
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF334155),
@@ -460,7 +481,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                             null,
                           ),
                           lists: DefaultListBlockStyle(
-                            GoogleFonts.poppins(
+                            GoogleFonts.plusJakartaSans(
                               fontSize: 15,
                               color: const Color(0xFF1E293B),
                               height: _lineSpacing,

@@ -613,162 +613,135 @@ class _CustomToolbarState extends State<CustomToolbar> {
         top: false,
         bottom: true,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                // 1. GABUNGAN BOLD, ITALIC, UNDERLINE DALAM 1 TOMBOL (KLIK LANGSUNG MUNCUL PILIHAN)
-                FormatClickMenuButton(
-                  isBold: _isBold,
-                  isItalic: _isItalic,
-                  isUnderline: _isUnderline,
-                  hasAnyActive: hasAnyStyleActive,
-                  onBoldSelected: _toggleBold,
-                  onItalicSelected: _toggleItalic,
-                  onUnderlineSelected: _toggleUnderline,
-                ),
-                const SizedBox(width: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // 1. Format: Bold, Italic, Underline popover
+              FormatClickMenuButton(
+                isBold: _isBold,
+                isItalic: _isItalic,
+                isUnderline: _isUnderline,
+                hasAnyActive: hasAnyStyleActive,
+                onBoldSelected: _toggleBold,
+                onItalicSelected: _toggleItalic,
+                onUnderlineSelected: _toggleUnderline,
+              ),
 
-                _buildDivider(),
-                const SizedBox(width: 8),
-
-                // 2. Ukuran Teks & Jarak Baris Picker
-                InkWell(
-                  onTap: _showFontSizeAndSpacingDialog,
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.format_size_rounded,
-                          size: 18,
-                          color: Color(0xFF475569),
+              // 2. Ukuran Teks & Jarak Baris Picker
+              InkWell(
+                onTap: _showFontSizeAndSpacingDialog,
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.format_size_rounded,
+                        size: 16,
+                        color: Color(0xFF475569),
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        _currentSize,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1E293B),
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          _currentSize,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1E293B),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 16,
-                          color: Color(0xFF64748B),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 2),
+                      const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 15,
+                        color: Color(0xFF64748B),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 8),
+              ),
 
-                // 3. Font Color Picker
-                InkWell(
-                  onTap: _showColorPicker,
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 16,
-                          height: 16,
-                          decoration: BoxDecoration(
-                            color: _currentColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: const Color(0xFFCBD5E1),
-                              width: 1,
-                            ),
+              // 3. Font Color Picker
+              InkWell(
+                onTap: _showColorPicker,
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: _currentColor,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFFCBD5E1),
+                            width: 1,
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'Warna',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1E293B),
-                          ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Text(
+                        'Warna',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1E293B),
                         ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 16,
-                          color: Color(0xFF64748B),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 2),
+                      const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 15,
+                        color: Color(0xFF64748B),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 8),
+              ),
 
-                _buildDivider(),
-                const SizedBox(width: 8),
+              // 4. Daftar: Bullet & Number List popover
+              ListClickMenuButton(
+                isBullet: _isBullet,
+                isNumber: _isNumber,
+                onBulletSelected: _toggleBullet,
+                onNumberSelected: _toggleNumber,
+              ),
 
-                // 4. Direct Tap Bullets List
-                _buildToolbarButton(
-                  icon: Icons.format_list_bulleted_rounded,
-                  isActive: _isBullet,
-                  tooltip: 'Daftar Poin (Bullets)',
-                  onTap: _toggleBullet,
-                ),
-                const SizedBox(width: 4),
-
-                // 5. Direct Tap Numbers List
-                _buildToolbarButton(
-                  icon: Icons.format_list_numbered_rounded,
-                  isActive: _isNumber,
-                  tooltip: 'Daftar Angka (Numbers)',
-                  onTap: _toggleNumber,
-                ),
-                const SizedBox(width: 8),
-
-                _buildDivider(),
-                const SizedBox(width: 8),
-
-                // 6. Undo Button
-                _buildToolbarButton(
-                  icon: Icons.undo_rounded,
-                  isActive: false,
-                  tooltip: 'Batal Perubahan (Undo)',
-                  onTap: () => widget.controller.undo(),
-                ),
-                const SizedBox(width: 4),
-
-                // 7. Redo Button
-                _buildToolbarButton(
-                  icon: Icons.redo_rounded,
-                  isActive: false,
-                  tooltip: 'Ulangi (Redo)',
-                  onTap: () => widget.controller.redo(),
-                ),
-              ],
-            ),
+              // 5. Undo & Redo Buttons
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildToolbarButton(
+                    icon: Icons.undo_rounded,
+                    isActive: false,
+                    tooltip: 'Batal Perubahan (Undo)',
+                    onTap: () => widget.controller.undo(),
+                  ),
+                  const SizedBox(width: 3),
+                  _buildToolbarButton(
+                    icon: Icons.redo_rounded,
+                    isActive: false,
+                    tooltip: 'Ulangi (Redo)',
+                    onTap: () => widget.controller.redo(),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildDivider() {
-    return Container(
-      width: 1,
-      height: 24,
-      color: const Color(0xFFE2E8F0),
     );
   }
 
@@ -787,8 +760,8 @@ class _CustomToolbarState extends State<CustomToolbar> {
           onTap: onTap,
           borderRadius: BorderRadius.circular(10),
           child: Container(
-            width: 38,
-            height: 38,
+            width: 34,
+            height: 34,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
@@ -798,11 +771,267 @@ class _CustomToolbarState extends State<CustomToolbar> {
             ),
             child: Icon(
               icon,
-              size: 20,
+              size: 18,
               color: isActive
                   ? const Color(0xFF4F46E5)
                   : const Color(0xFF475569),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 1-Button Click Popover Component for Bullet and Numbered Lists
+class ListClickMenuButton extends StatefulWidget {
+  final bool isBullet;
+  final bool isNumber;
+  final VoidCallback onBulletSelected;
+  final VoidCallback onNumberSelected;
+
+  const ListClickMenuButton({
+    super.key,
+    required this.isBullet,
+    required this.isNumber,
+    required this.onBulletSelected,
+    required this.onNumberSelected,
+  });
+
+  @override
+  State<ListClickMenuButton> createState() => _ListClickMenuButtonState();
+}
+
+class _ListClickMenuButtonState extends State<ListClickMenuButton> {
+  OverlayEntry? _overlayEntry;
+  final GlobalKey _buttonKey = GlobalKey();
+
+  @override
+  void dispose() {
+    _removeOverlay();
+    super.dispose();
+  }
+
+  void _togglePopover() {
+    if (_overlayEntry != null) {
+      _removeOverlay();
+    } else {
+      _showPopover();
+    }
+  }
+
+  void _showPopover() {
+    _removeOverlay();
+    HapticFeedback.lightImpact();
+
+    final renderBox =
+        _buttonKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final size = renderBox.size;
+    final buttonGlobalPos = renderBox.localToGlobal(Offset.zero);
+
+    const menuWidth = 180.0;
+    const menuHeight = 78.0;
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final buttonCenterX = buttonGlobalPos.dx + (size.width / 2);
+    var menuLeft = buttonCenterX - (menuWidth / 2);
+    if (menuLeft < 10) menuLeft = 10;
+    if (menuLeft + menuWidth > screenWidth - 10) {
+      menuLeft = screenWidth - menuWidth - 10;
+    }
+
+    final menuTop = buttonGlobalPos.dy - menuHeight - 10;
+
+    _overlayEntry = OverlayEntry(
+      builder: (ctx) {
+        return Stack(
+          children: [
+            // Fullscreen barrier to close on tap outside
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _removeOverlay,
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+            // Floating Popover Card
+            Positioned(
+              left: menuLeft,
+              top: menuTop,
+              child: Material(
+                color: Colors.transparent,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: menuWidth,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: const Color(0xFFCBD5E1),
+                          width: 1.2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF0F172A).withValues(alpha: 0.16),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildOptionCard(
+                            label: 'Poin',
+                            icon: Icons.format_list_bulleted_rounded,
+                            isActive: widget.isBullet,
+                            onTap: () {
+                              widget.onBulletSelected();
+                              _removeOverlay();
+                            },
+                          ),
+                          _buildOptionCard(
+                            label: 'Angka',
+                            icon: Icons.format_list_numbered_rounded,
+                            isActive: widget.isNumber,
+                            onTap: () {
+                              widget.onNumberSelected();
+                              _removeOverlay();
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Downward Pointer Arrow
+                    CustomPaint(
+                      size: const Size(16, 8),
+                      painter: _PopoverArrowPainter(
+                        color: Colors.white,
+                        strokeColor: const Color(0xFFCBD5E1),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _removeOverlay() {
+    if (_overlayEntry != null) {
+      _overlayEntry?.remove();
+      _overlayEntry = null;
+    }
+  }
+
+  Widget _buildOptionCard({
+    required String label,
+    required IconData icon,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF4F46E5) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isActive ? const Color(0xFF4F46E5) : const Color(0xFFE2E8F0),
+            width: 1.5,
+          ),
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF4F46E5).withValues(alpha: 0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: isActive ? Colors.white : const Color(0xFF334155),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: isActive ? Colors.white : const Color(0xFF64748B),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasAnyActive = widget.isBullet || widget.isNumber;
+    final activeIcon = widget.isNumber
+        ? Icons.format_list_numbered_rounded
+        : Icons.format_list_bulleted_rounded;
+
+    return Tooltip(
+      message: 'Daftar (Poin / Angka)',
+      child: InkWell(
+        key: _buttonKey,
+        onTap: _togglePopover,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+          decoration: BoxDecoration(
+            color: hasAnyActive ? const Color(0xFFEEF2FF) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: hasAnyActive
+                  ? const Color(0xFFC7D2FE)
+                  : const Color(0xFFE2E8F0),
+              width: hasAnyActive ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                activeIcon,
+                size: 18,
+                color: hasAnyActive
+                    ? const Color(0xFF4F46E5)
+                    : const Color(0xFF475569),
+              ),
+              const SizedBox(width: 2),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 15,
+                color: hasAnyActive
+                    ? const Color(0xFF4F46E5)
+                    : const Color(0xFF94A3B8),
+              ),
+            ],
           ),
         ),
       ),

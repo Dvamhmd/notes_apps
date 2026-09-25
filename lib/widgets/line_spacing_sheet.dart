@@ -361,7 +361,7 @@ class _LineSpacingSheetState extends State<LineSpacingSheet> {
                   const SizedBox(height: 8),
                   AnimatedDefaultTextStyle(
                     duration: const Duration(milliseconds: 100),
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 13,
                       height: _spacing,
                       color: const Color(0xFF1E293B),
