@@ -33,6 +33,14 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _breadcrumbScrollController = ScrollController();
 
+  Object? _draggedItem;
+  final ValueNotifier<String?> _activeHoveredFolderId = ValueNotifier<String?>(null);
+  final Map<String, GlobalKey> _targetKeys = {};
+
+  GlobalKey _getKeyForTarget(String targetId) {
+    return _targetKeys.putIfAbsent(targetId, () => GlobalKey());
+  }
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _searchController.dispose();
     _breadcrumbScrollController.dispose();
+    _activeHoveredFolderId.dispose();
     super.dispose();
   }
 
@@ -1710,6 +1719,146 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  bool _isValidDropTarget(String targetId) {
+    final dragged = _draggedItem;
+    if (dragged == null) return false;
+
+    if (dragged is NoteModel) {
+      if (targetId == '__ROOT__') {
+        return dragged.folderId != null;
+      }
+      return dragged.folderId != targetId;
+    } else if (dragged is FolderModel) {
+      if (targetId == '__ROOT__') {
+        return dragged.parentId != null;
+      }
+      if (dragged.id == targetId) return false;
+      if (dragged.parentId == targetId) return false;
+      final descendants = FolderUtils.getDescendantFolderIds(
+        dragged.id,
+        _folders,
+      );
+      if (descendants.contains(targetId)) return false;
+      return true;
+    }
+    return false;
+  }
+
+  void _onDragUpdatePosition(Offset pointerPosition, {required bool isNote}) {
+    if (_draggedItem == null) return;
+
+    final double cardWidth = isNote ? 250.0 : 220.0;
+    final double cardHeight = 56.0;
+    final Offset anchor = Offset(cardWidth / 2, cardHeight / 2);
+
+    final Rect floatingCardRect = Rect.fromLTWH(
+      pointerPosition.dx - anchor.dx,
+      pointerPosition.dy - anchor.dy,
+      cardWidth,
+      cardHeight,
+    );
+
+    String? bestTargetId;
+    double maxOverlapArea = 0.0;
+
+    // 1. Check Root target in Breadcrumb
+    if (_isValidDropTarget('__ROOT__')) {
+      final key = _targetKeys['__ROOT__'];
+      final renderObject = key?.currentContext?.findRenderObject();
+      if (renderObject is RenderBox && renderObject.hasSize && renderObject.attached) {
+        final targetRect = renderObject.localToGlobal(Offset.zero) & renderObject.size;
+        if (floatingCardRect.overlaps(targetRect)) {
+          final intersection = floatingCardRect.intersect(targetRect);
+          final area = intersection.width * intersection.height;
+          if (area > maxOverlapArea) {
+            maxOverlapArea = area;
+            bestTargetId = '__ROOT__';
+          }
+        }
+      }
+    }
+
+    // 2. Check Breadcrumb folder items
+    final breadcrumbPath = _currentFolderId == null
+        ? <FolderModel>[]
+        : FolderUtils.getFolderPath(_currentFolderId, _folders);
+    for (final bf in breadcrumbPath) {
+      if (_isValidDropTarget(bf.id)) {
+        final key = _targetKeys['breadcrumb_${bf.id}'];
+        final renderObject = key?.currentContext?.findRenderObject();
+        if (renderObject is RenderBox && renderObject.hasSize && renderObject.attached) {
+          final targetRect = renderObject.localToGlobal(Offset.zero) & renderObject.size;
+          if (floatingCardRect.overlaps(targetRect)) {
+            final intersection = floatingCardRect.intersect(targetRect);
+            final area = intersection.width * intersection.height;
+            if (area > maxOverlapArea) {
+              maxOverlapArea = area;
+              bestTargetId = bf.id;
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Check Subfolders in current view
+    for (final subfolder in _currentSubfolders) {
+      if (_isValidDropTarget(subfolder.id)) {
+        final key = _targetKeys[subfolder.id];
+        final renderObject = key?.currentContext?.findRenderObject();
+        if (renderObject is RenderBox && renderObject.hasSize && renderObject.attached) {
+          final targetRect = renderObject.localToGlobal(Offset.zero) & renderObject.size;
+          if (floatingCardRect.overlaps(targetRect)) {
+            final intersection = floatingCardRect.intersect(targetRect);
+            final area = intersection.width * intersection.height;
+            if (area > maxOverlapArea) {
+              maxOverlapArea = area;
+              bestTargetId = subfolder.id;
+            }
+          }
+        }
+      }
+    }
+
+    if (_activeHoveredFolderId.value != bestTargetId) {
+      _activeHoveredFolderId.value = bestTargetId;
+    }
+  }
+
+  Future<void> _handleDropOnEnd() async {
+    final targetId = _activeHoveredFolderId.value;
+    final dragged = _draggedItem;
+    _draggedItem = null;
+    _activeHoveredFolderId.value = null;
+
+    if (targetId == null || dragged == null) return;
+
+    if (targetId == '__ROOT__') {
+      if (dragged is NoteModel) {
+        await _storageService.moveNote(dragged.id, null);
+        await _loadData();
+        _showMoveSuccessSnackBar(
+          'Catatan "${dragged.title.isEmpty ? 'Tanpa Judul' : dragged.title}" dipindahkan ke Beranda',
+        );
+      } else if (dragged is FolderModel) {
+        final updated = dragged.copyWith(clearParent: true);
+        await _storageService.updateFolder(updated);
+        await _loadData();
+        _showMoveSuccessSnackBar(
+          'Folder "${dragged.name}" dipindahkan ke Beranda',
+        );
+      }
+    } else {
+      final targetFolder = _getFolderById(targetId);
+      if (targetFolder != null) {
+        if (dragged is NoteModel) {
+          await _handleNoteDroppedIntoFolder(dragged, targetFolder);
+        } else if (dragged is FolderModel) {
+          await _handleFolderDroppedIntoFolder(dragged, targetFolder);
+        }
+      }
+    }
+  }
+
   Widget _buildNoteDragFeedback(NoteModel note) {
     return Material(
       color: Colors.transparent,
@@ -1717,7 +1866,8 @@ class _HomeScreenState extends State<HomeScreen> {
         angle: -0.03,
         child: Container(
           width: 250,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
@@ -1794,7 +1944,8 @@ class _HomeScreenState extends State<HomeScreen> {
         angle: -0.03,
         child: Container(
           width: 220,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
@@ -1894,44 +2045,22 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Row(
           children: [
             // Root / Beranda item (Drag Target for moving note/folder to root)
-            DragTarget<Object>(
-              onWillAcceptWithDetails: (details) {
-                final data = details.data;
-                if (data is NoteModel) {
-                  return data.folderId != null;
-                } else if (data is FolderModel) {
-                  return data.parentId != null;
-                }
-                return false;
-              },
-              onAcceptWithDetails: (details) async {
-                final data = details.data;
-                if (data is NoteModel) {
-                  await _storageService.moveNote(data.id, null);
-                  await _loadData();
-                  _showMoveSuccessSnackBar(
-                    'Catatan "${data.title.isEmpty ? 'Tanpa Judul' : data.title}" dipindahkan ke Beranda',
+            KeyedSubtree(
+              key: _getKeyForTarget('__ROOT__'),
+              child: ValueListenableBuilder<String?>(
+                valueListenable: _activeHoveredFolderId,
+                builder: (context, hoveredId, child) {
+                  final isHovered = hoveredId == '__ROOT__';
+                  return _buildBreadcrumbItem(
+                    label: 'Beranda',
+                    icon: Icons.home_rounded,
+                    isActive: _currentFolderId == null,
+                    isDropHovered: isHovered,
+                    onTap: () => _navigateToFolder(null),
+                    color: const Color(0xFF4F46E5),
                   );
-                } else if (data is FolderModel) {
-                  final updated = data.copyWith(clearParent: true);
-                  await _storageService.updateFolder(updated);
-                  await _loadData();
-                  _showMoveSuccessSnackBar(
-                    'Folder "${data.name}" dipindahkan ke Beranda',
-                  );
-                }
-              },
-              builder: (context, candidateData, rejectedData) {
-                final isHovered = candidateData.isNotEmpty;
-                return _buildBreadcrumbItem(
-                  label: 'Beranda',
-                  icon: Icons.home_rounded,
-                  isActive: _currentFolderId == null,
-                  isDropHovered: isHovered,
-                  onTap: () => _navigateToFolder(null),
-                  color: const Color(0xFF4F46E5),
-                );
-              },
+                },
+              ),
             ),
 
             // Nested Folder path items
@@ -1944,44 +2073,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: Color(0xFF94A3B8),
                 ),
               ),
-              DragTarget<Object>(
-                onWillAcceptWithDetails: (details) {
-                  final data = details.data;
-                  final targetFolder = breadcrumbPath[i];
-                  if (data is NoteModel) {
-                    return data.folderId != targetFolder.id;
-                  } else if (data is FolderModel) {
-                    if (data.id == targetFolder.id) return false;
-                    if (data.parentId == targetFolder.id) return false;
-                    final descendants = FolderUtils.getDescendantFolderIds(
-                      data.id,
-                      _folders,
+              KeyedSubtree(
+                key: _getKeyForTarget('breadcrumb_${breadcrumbPath[i].id}'),
+                child: ValueListenableBuilder<String?>(
+                  valueListenable: _activeHoveredFolderId,
+                  builder: (context, hoveredId, child) {
+                    final isHovered = hoveredId == breadcrumbPath[i].id;
+                    return _buildBreadcrumbItem(
+                      label: breadcrumbPath[i].name,
+                      icon: Icons.folder_rounded,
+                      isActive: i == breadcrumbPath.length - 1,
+                      isDropHovered: isHovered,
+                      onTap: () => _navigateToFolder(breadcrumbPath[i].id),
+                      color: Color(breadcrumbPath[i].colorValue),
                     );
-                    if (descendants.contains(targetFolder.id)) return false;
-                    return true;
-                  }
-                  return false;
-                },
-                onAcceptWithDetails: (details) async {
-                  final data = details.data;
-                  final targetFolder = breadcrumbPath[i];
-                  if (data is NoteModel) {
-                    await _handleNoteDroppedIntoFolder(data, targetFolder);
-                  } else if (data is FolderModel) {
-                    await _handleFolderDroppedIntoFolder(data, targetFolder);
-                  }
-                },
-                builder: (context, candidateData, rejectedData) {
-                  final isHovered = candidateData.isNotEmpty;
-                  return _buildBreadcrumbItem(
-                    label: breadcrumbPath[i].name,
-                    icon: Icons.folder_rounded,
-                    isActive: i == breadcrumbPath.length - 1,
-                    isDropHovered: isHovered,
-                    onTap: () => _navigateToFolder(breadcrumbPath[i].id),
-                    color: Color(breadcrumbPath[i].colorValue),
-                  );
-                },
+                  },
+                ),
               ),
             ],
           ],
@@ -2169,7 +2276,20 @@ class _HomeScreenState extends State<HomeScreen> {
             final folder = _getFolderById(note.folderId);
             return Draggable<Object>(
               data: note,
+              dragAnchorStrategy: (draggable, context, point) => const Offset(125, 28),
               feedback: _buildNoteDragFeedback(note),
+              onDragStarted: () {
+                _draggedItem = note;
+              },
+              onDragUpdate: (details) {
+                _onDragUpdatePosition(details.globalPosition, isNote: true);
+              },
+              onDragEnd: (details) {
+                _handleDropOnEnd();
+              },
+              onDraggableCanceled: (velocity, offset) {
+                _handleDropOnEnd();
+              },
               childWhenDragging: Opacity(
                 opacity: 0.35,
                 child: NoteCard(
@@ -2217,58 +2337,51 @@ class _HomeScreenState extends State<HomeScreen> {
             final subChildCount =
                 _folders.where((f) => f.parentId == folder.id).length;
 
-            return DragTarget<Object>(
-              onWillAcceptWithDetails: (details) {
-                final data = details.data;
-                if (data is NoteModel) {
-                  return data.folderId != folder.id;
-                } else if (data is FolderModel) {
-                  if (data.id == folder.id) return false;
-                  if (data.parentId == folder.id) return false;
-                  final descendants = FolderUtils.getDescendantFolderIds(
-                    data.id,
-                    _folders,
-                  );
-                  if (descendants.contains(folder.id)) return false;
-                  return true;
-                }
-                return false;
-              },
-              onAcceptWithDetails: (details) async {
-                final data = details.data;
-                if (data is NoteModel) {
-                  await _handleNoteDroppedIntoFolder(data, folder);
-                } else if (data is FolderModel) {
-                  await _handleFolderDroppedIntoFolder(data, folder);
-                }
-              },
-              builder: (context, candidateData, rejectedData) {
-                final isHovered = candidateData.isNotEmpty;
+            return KeyedSubtree(
+              key: _getKeyForTarget(folder.id),
+              child: ValueListenableBuilder<String?>(
+                valueListenable: _activeHoveredFolderId,
+                builder: (context, hoveredId, child) {
+                  final isHovered = hoveredId == folder.id;
 
-                return Draggable<Object>(
-                  data: folder,
-                  feedback: _buildFolderDragFeedback(folder),
-                  childWhenDragging: Opacity(
-                    opacity: 0.35,
+                  return Draggable<Object>(
+                    data: folder,
+                    dragAnchorStrategy: (draggable, context, point) => const Offset(110, 28),
+                    feedback: _buildFolderDragFeedback(folder),
+                    onDragStarted: () {
+                      _draggedItem = folder;
+                    },
+                    onDragUpdate: (details) {
+                      _onDragUpdatePosition(details.globalPosition, isNote: false);
+                    },
+                    onDragEnd: (details) {
+                      _handleDropOnEnd();
+                    },
+                    onDraggableCanceled: (velocity, offset) {
+                      _handleDropOnEnd();
+                    },
+                    childWhenDragging: Opacity(
+                      opacity: 0.35,
+                      child: _buildFolderCardContent(
+                        folder: folder,
+                        noteCount: noteCount,
+                        subChildCount: subChildCount,
+                        isDropHovered: false,
+                      ),
+                    ),
                     child: _buildFolderCardContent(
                       folder: folder,
                       noteCount: noteCount,
                       subChildCount: subChildCount,
-                      isDropHovered: false,
+                      isDropHovered: isHovered,
+                      onLongPress: () {
+                        HapticFeedback.mediumImpact();
+                        _showFolderOptions(folder);
+                      },
                     ),
-                  ),
-                  child: _buildFolderCardContent(
-                    folder: folder,
-                    noteCount: noteCount,
-                    subChildCount: subChildCount,
-                    isDropHovered: isHovered,
-                    onLongPress: () {
-                      HapticFeedback.mediumImpact();
-                      _showFolderOptions(folder);
-                    },
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             );
           },
         );
@@ -2457,7 +2570,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
         return Draggable<Object>(
           data: note,
+          dragAnchorStrategy: (draggable, context, point) => const Offset(125, 28),
           feedback: _buildNoteDragFeedback(note),
+          onDragStarted: () {
+            _draggedItem = note;
+          },
+          onDragUpdate: (details) {
+            _onDragUpdatePosition(details.globalPosition, isNote: true);
+          },
+          onDragEnd: (details) {
+            _handleDropOnEnd();
+          },
+          onDraggableCanceled: (velocity, offset) {
+            _handleDropOnEnd();
+          },
           childWhenDragging: Opacity(
             opacity: 0.35,
             child: NoteCard(
