@@ -569,6 +569,18 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                                 null,
                                 null,
                               ),
+                              leading: DefaultTextBlockStyle(
+                                TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 15,
+                                  color: const Color(0xFF1E293B),
+                                  height: _lineSpacing,
+                                ),
+                                const HorizontalSpacing(0, 0),
+                                const VerticalSpacing(0, 0),
+                                const VerticalSpacing(0, 0),
+                                null,
+                              ),
                             ),
                           ),
                         ),
