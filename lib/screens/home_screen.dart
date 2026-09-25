@@ -30,12 +30,88 @@ class _HomeScreenState extends State<HomeScreen> {
   String _searchQuery = '';
   String? _currentFolderId; // null = Root / Beranda
 
+  bool _isSelectionMode = false;
+  final Set<String> _selectedNoteIds = {};
+  final Set<String> _selectedFolderIds = {};
+
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _breadcrumbScrollController = ScrollController();
 
   Object? _draggedItem;
   final ValueNotifier<String?> _activeHoveredFolderId = ValueNotifier<String?>(null);
   final Map<String, GlobalKey> _targetKeys = {};
+
+  int get _totalSelectedCount => _selectedNoteIds.length + _selectedFolderIds.length;
+
+  bool get _isAllSelected {
+    final subfolders = _currentSubfolders;
+    final notes = _currentNotes;
+    if (subfolders.isEmpty && notes.isEmpty) return false;
+    final allFoldersSelected = subfolders.isEmpty || subfolders.every((f) => _selectedFolderIds.contains(f.id));
+    final allNotesSelected = notes.isEmpty || notes.every((n) => _selectedNoteIds.contains(n.id));
+    return allFoldersSelected && allNotesSelected;
+  }
+
+  void _enterSelectionModeWithNote(String noteId) {
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _isSelectionMode = true;
+      _selectedNoteIds.add(noteId);
+    });
+  }
+
+  void _enterSelectionModeWithFolder(String folderId) {
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _isSelectionMode = true;
+      _selectedFolderIds.add(folderId);
+    });
+  }
+
+  void _toggleNoteSelection(String noteId) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (_selectedNoteIds.contains(noteId)) {
+        _selectedNoteIds.remove(noteId);
+      } else {
+        _selectedNoteIds.add(noteId);
+      }
+    });
+  }
+
+  void _toggleFolderSelection(String folderId) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (_selectedFolderIds.contains(folderId)) {
+        _selectedFolderIds.remove(folderId);
+      } else {
+        _selectedFolderIds.add(folderId);
+      }
+    });
+  }
+
+  void _toggleSelectAll() {
+    HapticFeedback.selectionClick();
+    final subfolders = _currentSubfolders;
+    final notes = _currentNotes;
+    setState(() {
+      if (_isAllSelected) {
+        _selectedNoteIds.clear();
+        _selectedFolderIds.clear();
+      } else {
+        _selectedNoteIds.addAll(notes.map((n) => n.id));
+        _selectedFolderIds.addAll(subfolders.map((f) => f.id));
+      }
+    });
+  }
+
+  void _exitSelectionMode() {
+    setState(() {
+      _isSelectionMode = false;
+      _selectedNoteIds.clear();
+      _selectedFolderIds.clear();
+    });
+  }
 
   GlobalKey _getKeyForTarget(String targetId) {
     return _targetKeys.putIfAbsent(targetId, () => GlobalKey());
@@ -277,6 +353,111 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadData();
   }
 
+  void _confirmBatchDelete() {
+    final noteCount = _selectedNoteIds.length;
+    final folderCount = _selectedFolderIds.length;
+    final totalCount = _totalSelectedCount;
+
+    if (totalCount == 0) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEE2E2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.delete_sweep_rounded,
+                color: Color(0xFFEF4444),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Hapus $totalCount Item?',
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Anda akan menghapus ${[
+                if (noteCount > 0) '$noteCount catatan',
+                if (folderCount > 0) '$folderCount folder'
+              ].join(' dan ')}.',
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color(0xFF1E293B),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              folderCount > 0
+                  ? 'Semua catatan dan subfolder di dalam folder yang dipilih juga akan terhapus secara permanen.'
+                  : 'Catatan yang dipilih akan dihapus secara permanen.',
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF64748B),
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal', style: TextStyle(color: Color(0xFF64748B))),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final deletedTotal = _totalSelectedCount;
+
+              // Delete selected notes
+              for (final noteId in _selectedNoteIds) {
+                await _storageService.deleteNote(noteId);
+              }
+
+              // Delete selected folders (and child contents)
+              for (final folderId in _selectedFolderIds) {
+                await _storageService.deleteFolder(folderId, deleteNotes: true);
+                if (_currentFolderId == folderId) {
+                  _currentFolderId = null;
+                }
+              }
+
+              _exitSelectionMode();
+              await _loadData();
+              _showMoveSuccessSnackBar('$deletedTotal item berhasil dihapus.');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Hapus Semua'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showNoteOptions(NoteModel note) {
     final folder = _getFolderById(note.folderId);
     showModalBottomSheet(
@@ -349,6 +530,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
+                const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
+
+                // Option 0: Multi-Select Mode
+                _buildBottomSheetActionTile(
+                  label: 'Pilih Banyak Item',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _enterSelectionModeWithNote(note.id);
+                  },
+                ),
                 const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
 
                 // Option 1: Pin / Unpin
@@ -471,6 +662,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
+                const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
+
+                // Option 0: Multi-Select Mode
+                _buildBottomSheetActionTile(
+                  label: 'Pilih Banyak Item',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _enterSelectionModeWithFolder(folder.id);
+                  },
+                ),
                 const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
 
                 // Option 1: Rename & Color
@@ -1297,9 +1498,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final breadcrumbPath = FolderUtils.getFolderPath(_currentFolderId, _folders);
 
     return PopScope(
-      canPop: _currentFolderId == null && _searchQuery.isEmpty,
+      canPop: !_isSelectionMode && _currentFolderId == null && _searchQuery.isEmpty,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
+        if (_isSelectionMode) {
+          _exitSelectionMode();
+          return;
+        }
         if (_searchQuery.isNotEmpty) {
           _searchController.clear();
           setState(() {
@@ -1313,191 +1518,251 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
-        appBar: AppBar(
-          backgroundColor: const Color(0xFFF8FAFC),
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          leading: _currentFolderId != null
-              ? IconButton(
+        appBar: _isSelectionMode
+            ? AppBar(
+                backgroundColor: Colors.white,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                leading: IconButton(
                   icon: const Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    size: 20,
+                    Icons.close_rounded,
                     color: Color(0xFF1E293B),
+                    size: 22,
                   ),
-                  tooltip: 'Kembali ke folder sebelumnya',
-                  onPressed: _navigateUp,
-                )
-              : null,
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: currentFolder != null
-                      ? Color(currentFolder.colorValue)
-                      : const Color(0xFF4F46E5),
-                  borderRadius: BorderRadius.circular(12),
+                  tooltip: 'Batal Memilih',
+                  onPressed: _exitSelectionMode,
                 ),
-                child: Icon(
-                  currentFolder != null
-                      ? Icons.folder_rounded
-                      : Icons.edit_note_rounded,
-                  color: Colors.white,
-                  size: 20,
+                title: Text(
+                  _totalSelectedCount == 0
+                      ? 'Pilih Item'
+                      : '$_totalSelectedCount Terpilih',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                actions: [
+                  IconButton(
+                    icon: Icon(
+                      _isAllSelected
+                          ? Icons.deselect_rounded
+                          : Icons.select_all_rounded,
+                      color: const Color(0xFF4F46E5),
+                      size: 22,
+                    ),
+                    tooltip: _isAllSelected
+                        ? 'Batal Pilih Semua'
+                        : 'Pilih Semua Item',
+                    onPressed: _toggleSelectAll,
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      color: _totalSelectedCount > 0
+                          ? const Color(0xFFEF4444)
+                          : const Color(0xFFCBD5E1),
+                      size: 22,
+                    ),
+                    tooltip: 'Hapus Item Terpilih',
+                    onPressed:
+                        _totalSelectedCount > 0 ? _confirmBatchDelete : null,
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                bottom: PreferredSize(
+                  preferredSize: const Size.fromHeight(1),
+                  child: Container(
+                    height: 1,
+                    color: const Color(0xFFE2E8F0),
+                  ),
+                ),
+              )
+            : AppBar(
+                backgroundColor: const Color(0xFFF8FAFC),
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                leading: _currentFolderId != null
+                    ? IconButton(
+                        icon: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 20,
+                          color: Color(0xFF1E293B),
+                        ),
+                        tooltip: 'Kembali ke folder sebelumnya',
+                        onPressed: _navigateUp,
+                      )
+                    : null,
+                title: Row(
                   children: [
-                    Text(
-                      currentFolder != null ? currentFolder.name : 'Notes',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0F172A),
-                        letterSpacing: -0.5,
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: currentFolder != null
+                            ? Color(currentFolder.colorValue)
+                            : const Color(0xFF4F46E5),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        currentFolder != null
+                            ? Icons.folder_rounded
+                            : Icons.edit_note_rounded,
+                        color: Colors.white,
+                        size: 20,
                       ),
                     ),
-                    if (currentFolder != null)
-                      Text(
-                        '${_currentNotes.length} catatan • ${_currentSubfolders.length} subfolder',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF64748B),
-                        ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            currentFolder != null ? currentFolder.name : 'Notes',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 19,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF0F172A),
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          if (currentFolder != null)
+                            Text(
+                              '${_currentNotes.length} catatan • ${_currentSubfolders.length} subfolder',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                        ],
                       ),
+                    ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          actions: [
-            // Three dots popup menu button (Point #3)
-            PopupMenuButton<String>(
-              icon: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: const Icon(
-                  Icons.more_vert_rounded,
-                  color: Color(0xFF334155),
-                  size: 20,
-                ),
-              ),
-              tooltip: 'Menu Opsi',
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              onSelected: (val) {
-                if (val == 'manage_folders') {
-                  _openManageFolders();
-                } else if (val == 'create_folder') {
-                  _showCreateFolderDialog();
-                } else if (val == 'create_note') {
-                  _onAddNotePressed();
-                }
-              },
-              itemBuilder: (ctx) => [
-                PopupMenuItem(
-                  value: 'create_folder',
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEEF2FF),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.create_new_folder_outlined,
-                          size: 18,
-                          color: Color(0xFF4F46E5),
+                actions: [
+                  // Three dots popup menu button (Point #3)
+                  PopupMenuButton<String>(
+                    icon: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: const Icon(
+                        Icons.more_vert_rounded,
+                        color: Color(0xFF334155),
+                        size: 20,
+                      ),
+                    ),
+                    tooltip: 'Menu Opsi',
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    onSelected: (val) {
+                      if (val == 'manage_folders') {
+                        _openManageFolders();
+                      } else if (val == 'create_folder') {
+                        _showCreateFolderDialog();
+                      } else if (val == 'create_note') {
+                        _onAddNotePressed();
+                      }
+                    },
+                    itemBuilder: (ctx) => [
+                      PopupMenuItem(
+                        value: 'create_folder',
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEEF2FF),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.create_new_folder_outlined,
+                                size: 18,
+                                color: Color(0xFF4F46E5),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              _currentFolderId != null
+                                  ? 'Buat Subfolder'
+                                  : 'Buat Folder Baru',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Text(
-                        _currentFolderId != null
-                            ? 'Buat Subfolder'
-                            : 'Buat Folder Baru',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF1E293B),
+                      PopupMenuItem(
+                        value: 'manage_folders',
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.folder_outlined,
+                                size: 18,
+                                color: Color(0xFF475569),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Kelola Folder',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      PopupMenuItem(
+                        value: 'create_note',
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0FDF4),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.note_add_outlined,
+                                size: 18,
+                                color: Color(0xFF16A34A),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Catatan Baru',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ),
-                PopupMenuItem(
-                  value: 'manage_folders',
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.folder_outlined,
-                          size: 18,
-                          color: Color(0xFF475569),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Kelola Folder',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF1E293B),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const PopupMenuDivider(),
-                PopupMenuItem(
-                  value: 'create_note',
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF0FDF4),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.note_add_outlined,
-                          size: 18,
-                          color: Color(0xFF16A34A),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Catatan Baru',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF1E293B),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 12),
-          ],
-        ),
+                  const SizedBox(width: 12),
+                ],
+              ),
         body: _isLoading
             ? const Center(
                 child: CircularProgressIndicator(
@@ -1637,25 +1902,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: _onAddNotePressed,
-          backgroundColor: currentFolder != null
-              ? Color(currentFolder.colorValue)
-              : const Color(0xFF4F46E5),
-          foregroundColor: Colors.white,
-          elevation: 4,
-          highlightElevation: 6,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          icon: const Icon(Icons.add_rounded, size: 22),
-          label: Text(
-            currentFolder != null ? 'Catatan di Folder Ini' : 'Catatan Baru',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.1,
-            ),
-          ),
-        ),
+        floatingActionButton: _isSelectionMode
+            ? null
+            : FloatingActionButton.extended(
+                onPressed: _onAddNotePressed,
+                backgroundColor: currentFolder != null
+                    ? Color(currentFolder.colorValue)
+                    : const Color(0xFF4F46E5),
+                foregroundColor: Colors.white,
+                elevation: 4,
+                highlightElevation: 6,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                icon: const Icon(Icons.add_rounded, size: 22),
+                label: Text(
+                  currentFolder != null ? 'Catatan di Folder Ini' : 'Catatan Baru',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.1,
+                  ),
+                ),
+              ),
       ),
     );
   }
@@ -2274,6 +2541,19 @@ class _HomeScreenState extends State<HomeScreen> {
         else
           ...notes.map((note) {
             final folder = _getFolderById(note.folderId);
+            final isSelected = _selectedNoteIds.contains(note.id);
+
+            if (_isSelectionMode) {
+              return NoteCard(
+                note: note,
+                folder: folder,
+                isSelectionMode: true,
+                isSelected: isSelected,
+                onTap: () => _toggleNoteSelection(note.id),
+                onLongPress: () => _toggleNoteSelection(note.id),
+              );
+            }
+
             return Draggable<Object>(
               data: note,
               dragAnchorStrategy: (draggable, context, point) => const Offset(125, 28),
@@ -2336,6 +2616,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 _allNotes.where((n) => n.folderId == folder.id).length;
             final subChildCount =
                 _folders.where((f) => f.parentId == folder.id).length;
+            final isSelected = _selectedFolderIds.contains(folder.id);
+
+            if (_isSelectionMode) {
+              return _buildFolderCardContent(
+                folder: folder,
+                noteCount: noteCount,
+                subChildCount: subChildCount,
+                isDropHovered: false,
+                isSelectionMode: true,
+                isSelected: isSelected,
+                onTap: () => _toggleFolderSelection(folder.id),
+                onLongPress: () => _toggleFolderSelection(folder.id),
+              );
+            }
 
             return KeyedSubtree(
               key: _getKeyForTarget(folder.id),
@@ -2394,30 +2688,45 @@ class _HomeScreenState extends State<HomeScreen> {
     required int noteCount,
     required int subChildCount,
     required bool isDropHovered,
+    bool isSelectionMode = false,
+    bool isSelected = false,
+    VoidCallback? onTap,
     VoidCallback? onLongPress,
   }) {
+    final borderColor = isSelectionMode
+        ? (isSelected
+            ? Color(folder.colorValue)
+            : const Color(0xFFE2E8F0))
+        : (isDropHovered
+            ? Color(folder.colorValue)
+            : Color(folder.colorValue).withValues(alpha: 0.25));
+
+    final cardBg = isSelectionMode && isSelected
+        ? Color(folder.colorValue).withValues(alpha: 0.08)
+        : (isDropHovered
+            ? Color(folder.colorValue).withValues(alpha: 0.18)
+            : Colors.white);
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       transform: isDropHovered
           ? Matrix4.diagonal3Values(1.03, 1.03, 1.0)
           : Matrix4.identity(),
       decoration: BoxDecoration(
-        color: isDropHovered
-            ? Color(folder.colorValue).withValues(alpha: 0.18)
-            : Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDropHovered
-              ? Color(folder.colorValue)
-              : Color(folder.colorValue).withValues(alpha: 0.25),
-          width: isDropHovered ? 2.0 : 1.0,
+          color: borderColor,
+          width: (isSelectionMode && isSelected) || isDropHovered ? 2.0 : 1.0,
         ),
         boxShadow: [
           BoxShadow(
             color: isDropHovered
                 ? Color(folder.colorValue).withValues(alpha: 0.2)
-                : const Color(0xFF0F172A).withValues(alpha: 0.02),
-            blurRadius: isDropHovered ? 12 : 6,
+                : (isSelectionMode && isSelected
+                    ? Color(folder.colorValue).withValues(alpha: 0.12)
+                    : const Color(0xFF0F172A).withValues(alpha: 0.02)),
+            blurRadius: isDropHovered || (isSelectionMode && isSelected) ? 10 : 6,
             offset: const Offset(0, 2),
           ),
         ],
@@ -2425,13 +2734,40 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => _navigateToFolder(folder.id),
+          onTap: onTap ?? () => _navigateToFolder(folder.id),
           onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             child: Row(
               children: [
+                if (isSelectionMode) ...[
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Color(folder.colorValue)
+                          : Colors.transparent,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected
+                            ? Color(folder.colorValue)
+                            : const Color(0xFFCBD5E1),
+                        width: 2,
+                      ),
+                    ),
+                    child: isSelected
+                        ? const Icon(
+                            Icons.check_rounded,
+                            size: 13,
+                            color: Colors.white,
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 Container(
                   padding: const EdgeInsets.all(9),
                   decoration: BoxDecoration(
@@ -2447,7 +2783,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: isDropHovered
                         ? Colors.white
                         : Color(folder.colorValue),
-                    size: 22,
+                    size: 20,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -2490,15 +2826,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-                Icon(
-                  isDropHovered
-                      ? Icons.arrow_downward_rounded
-                      : Icons.chevron_right_rounded,
-                  size: 16,
-                  color: isDropHovered
-                      ? Color(folder.colorValue)
-                      : const Color(0xFFCBD5E1),
-                ),
+                if (!isSelectionMode)
+                  Icon(
+                    isDropHovered
+                        ? Icons.arrow_downward_rounded
+                        : Icons.chevron_right_rounded,
+                    size: 16,
+                    color: isDropHovered
+                        ? Color(folder.colorValue)
+                        : const Color(0xFFCBD5E1),
+                  ),
               ],
             ),
           ),
@@ -2567,6 +2904,18 @@ class _HomeScreenState extends State<HomeScreen> {
           separator: ' > ',
           rootLabel: 'Utama',
         );
+        final isSelected = _selectedNoteIds.contains(note.id);
+
+        if (_isSelectionMode) {
+          return NoteCard(
+            note: note,
+            folder: folder,
+            folderPath: folderPathStr,
+            isSelectionMode: true,
+            isSelected: isSelected,
+            onTap: () => _toggleNoteSelection(note.id),
+          );
+        }
 
         return Draggable<Object>(
           data: note,
@@ -2598,10 +2947,7 @@ class _HomeScreenState extends State<HomeScreen> {
             folder: folder,
             folderPath: folderPathStr,
             onTap: () => _openNoteEditor(note),
-            onLongPress: () {
-              HapticFeedback.mediumImpact();
-              _showNoteOptions(note);
-            },
+            onLongPress: () => _enterSelectionModeWithNote(note.id),
           ),
         );
       },

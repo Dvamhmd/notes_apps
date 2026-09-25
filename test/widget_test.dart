@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_app/main.dart';
+import 'package:notes_app/models/note_model.dart';
+import 'package:notes_app/widgets/note_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -53,6 +55,41 @@ void main() {
 
     final richTextFinder = find.byType(RichText);
     expect(richTextFinder, findsWidgets);
+  });
+
+  testWidgets('Test NoteCard renders selection checkbox badge when isSelectionMode is true', (WidgetTester tester) async {
+    final note = NoteModel(
+      id: 'test-1',
+      title: 'Catatan Tes',
+      contentJson: r'[{"insert":"Isi catatan tes\n"}]',
+      plainText: 'Isi catatan tes',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    bool tapped = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: NoteCard(
+            note: note,
+            isSelectionMode: true,
+            isSelected: true,
+            onTap: () {
+              tapped = true;
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Catatan Tes'), findsOneWidget);
+    expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+
+    await tester.tap(find.text('Catatan Tes'));
+    expect(tapped, isTrue);
   });
 }
 

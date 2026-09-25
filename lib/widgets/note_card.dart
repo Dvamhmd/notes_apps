@@ -9,6 +9,8 @@ class NoteCard extends StatelessWidget {
   final String? folderPath;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final bool isSelectionMode;
+  final bool isSelected;
 
   const NoteCard({
     super.key,
@@ -17,6 +19,8 @@ class NoteCard extends StatelessWidget {
     this.folderPath,
     required this.onTap,
     this.onLongPress,
+    this.isSelectionMode = false,
+    this.isSelected = false,
   });
 
   String _formatDate(DateTime date) {
@@ -37,20 +41,28 @@ class NoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final borderColor = isSelectionMode
+        ? (isSelected ? const Color(0xFF4F46E5) : const Color(0xFFE2E8F0))
+        : (note.isPinned ? const Color(0xFFC7D2FE) : const Color(0xFFE2E8F0));
+
+    final cardBgColor = isSelectionMode && isSelected
+        ? const Color(0xFFF5F7FF)
+        : Colors.white;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBgColor,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: note.isPinned
-              ? const Color(0xFFC7D2FE)
-              : const Color(0xFFE2E8F0),
-          width: note.isPinned ? 1.5 : 1,
+          color: borderColor,
+          width: (isSelectionMode && isSelected) || note.isPinned ? 1.5 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.03),
+            color: isSelectionMode && isSelected
+                ? const Color(0xFF4F46E5).withValues(alpha: 0.08)
+                : const Color(0xFF0F172A).withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -67,10 +79,33 @@ class NoteCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header row: Title & pin badge
+                // Header row: Checkbox (in selection mode) / Title & pin badge
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
+                    if (isSelectionMode) ...[
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFF4F46E5) : Colors.transparent,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFF4F46E5) : const Color(0xFFCBD5E1),
+                            width: 2,
+                          ),
+                        ),
+                        child: isSelected
+                            ? const Icon(
+                                Icons.check_rounded,
+                                size: 14,
+                                color: Colors.white,
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 10),
+                    ],
                     Expanded(
                       child: Text(
                         note.title.isEmpty ? 'Tanpa Judul' : note.title,
@@ -84,7 +119,7 @@ class NoteCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (note.isPinned) ...[
+                    if (note.isPinned && !isSelectionMode) ...[
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.all(4),
