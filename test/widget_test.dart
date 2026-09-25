@@ -129,20 +129,16 @@ void main() {
     expect(targetController.document.toPlainText(), contains('Start: Hello Bold'));
   });
 
-  testWidgets('Test search filter chips and filter bottom sheet', (WidgetTester tester) async {
+  testWidgets('Test search filter bottom sheet from search field icon', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
 
     await tester.pumpWidget(const NotesApp());
     await tester.pumpAndSettle();
 
-    // Verify search filter chips are visible
-    expect(find.text('Filter'), findsOneWidget);
-    expect(find.text('Semua Folder'), findsOneWidget);
-    expect(find.text('Tipe: Semua Jenis'), findsOneWidget);
-    expect(find.text('Cari di: Judul & Teks'), findsOneWidget);
-
-    // Tap the Filter button to open filter sheet
-    await tester.tap(find.text('Filter'));
+    // Tap the filter icon button in the search field to open filter sheet
+    final filterIcon = find.byIcon(Icons.tune_rounded);
+    expect(filterIcon, findsOneWidget);
+    await tester.tap(filterIcon);
     await tester.pumpAndSettle();
 
     // Verify filter sheet elements

@@ -11,7 +11,6 @@ import '../widgets/create_folder_dialog.dart';
 import '../widgets/create_note_dialog.dart';
 import '../widgets/move_note_dialog.dart';
 import '../widgets/note_card.dart';
-import '../widgets/search_filter_bar.dart';
 import '../widgets/search_filter_sheet.dart';
 import 'folder_manage_screen.dart';
 import 'note_editor_screen.dart';
@@ -2111,33 +2110,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
 
-                      // Filter Chips Bar (Quick scope, type, and target selection)
-                      SearchFilterChipsBar(
-                        config: _searchFilterConfig,
-                        currentFolder: currentFolder,
-                        onChanged: (newConfig) {
-                          setState(() {
-                            _searchFilterConfig = newConfig;
-                            _recalculateFilteredItems();
-                          });
-                        },
-                        onOpenFullFilter: () {
-                          SearchFilterSheet.show(
-                            context,
-                            currentConfig: _searchFilterConfig,
-                            currentFolder: currentFolder,
-                            onApply: (newConfig) {
-                              setState(() {
-                                _searchFilterConfig = newConfig;
-                                _recalculateFilteredItems();
-                              });
-                            },
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 4),
-
-                      // Breadcrumbs / Hierarchy Navigator (Point #1 - replaces tab filters)
+                      // Breadcrumbs / Hierarchy Navigator
                       _buildBreadcrumbBar(breadcrumbPath, currentFolder),
 
                       const SizedBox(height: 8),
