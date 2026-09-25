@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/folder_model.dart';
 import '../models/note_model.dart';
+import '../services/storage_service.dart';
 import '../utils/folder_utils.dart';
 import '../widgets/create_folder_dialog.dart';
+import 'home_screen.dart';
 
 class FolderManageScreen extends StatefulWidget {
   final List<FolderModel> folders;
@@ -46,6 +48,50 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
       map[n.folderId] = (map[n.folderId] ?? 0) + 1;
     }
     _noteCountMap = map;
+  }
+
+  Future<void> _loadData() async {
+    final storageService = StorageService();
+    final folders = await storageService.getFolders();
+    final notes = await storageService.getNotes();
+    if (mounted) {
+      setState(() {
+        _folders = folders;
+        widget.notes.clear();
+        widget.notes.addAll(notes);
+        _buildNoteCountMap();
+      });
+    }
+  }
+
+  void _openFolder(String? folderId) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (ctx, animation, secondaryAnimation) => RepaintBoundary(
+          child: HomeScreen(
+            initialFolderId: folderId,
+            isOpenedFromManage: true,
+          ),
+        ),
+        transitionsBuilder: (ctx, animation, secondaryAnimation, child) {
+          final curve = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+          return FadeTransition(
+            opacity: curve,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.04, 0),
+                end: Offset.zero,
+              ).animate(curve),
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 200),
+        reverseTransitionDuration: const Duration(milliseconds: 180),
+      ),
+    ).then((_) {
+      _loadData();
+    });
   }
 
   int _getDirectNoteCount(String? folderId) {
@@ -395,12 +441,7 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
               // Unassigned Folder item
               InkWell(
                 borderRadius: BorderRadius.circular(16),
-                onTap: () {
-                  if (widget.onSelectFolder != null) {
-                    Navigator.pop(context);
-                    widget.onSelectFolder!(null);
-                  }
-                },
+                onTap: () => _openFolder(null),
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -564,12 +605,7 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
                           const SizedBox(width: 4),
                         InkWell(
                           borderRadius: BorderRadius.circular(12),
-                          onTap: () {
-                            if (widget.onSelectFolder != null) {
-                              Navigator.pop(context);
-                              widget.onSelectFolder!(folder.id);
-                            }
-                          },
+                          onTap: () => _openFolder(folder.id),
                           child: Container(
                             padding: const EdgeInsets.all(9),
                             decoration: BoxDecoration(
@@ -587,12 +623,7 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
                         Expanded(
                           child: InkWell(
                             borderRadius: BorderRadius.circular(8),
-                            onTap: () {
-                              if (widget.onSelectFolder != null) {
-                                Navigator.pop(context);
-                                widget.onSelectFolder!(folder.id);
-                              }
-                            },
+                            onTap: () => _openFolder(folder.id),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(vertical: 2.0),
                               child: Column(

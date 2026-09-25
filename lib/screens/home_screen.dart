@@ -14,7 +14,14 @@ import 'folder_manage_screen.dart';
 import 'note_editor_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final String? initialFolderId;
+  final bool isOpenedFromManage;
+
+  const HomeScreen({
+    super.key,
+    this.initialFolderId,
+    this.isOpenedFromManage = false,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -28,7 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
 
   String _searchQuery = '';
-  String? _currentFolderId; // null = Root / Beranda
+  late String? _currentFolderId; // null = Root / Beranda
 
   bool _isSelectionMode = false;
   final Set<String> _selectedNoteIds = {};
@@ -120,6 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _currentFolderId = widget.initialFolderId;
     _loadData();
   }
 
@@ -268,6 +276,27 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _navigateUp() {
+    if (_isSelectionMode) {
+      _exitSelectionMode();
+      return;
+    }
+    if (_searchQuery.isNotEmpty) {
+      _searchController.clear();
+      setState(() {
+        _searchQuery = '';
+      });
+      return;
+    }
+    if (widget.isOpenedFromManage) {
+      if (_currentFolderId == widget.initialFolderId || _currentFolderId == null) {
+        Navigator.pop(context);
+        return;
+      }
+      final currentFolder = _getFolderById(_currentFolderId);
+      _navigateToFolder(currentFolder?.parentId);
+      return;
+    }
+
     if (_currentFolderId == null) return;
     final currentFolder = _getFolderById(_currentFolderId);
     _navigateToFolder(currentFolder?.parentId);
@@ -1610,8 +1639,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final currentFolder = _getFolderById(_currentFolderId);
     final breadcrumbPath = FolderUtils.getFolderPath(_currentFolderId, _folders);
 
+    final canPopDirectly = !_isSelectionMode &&
+        _searchQuery.isEmpty &&
+        (!widget.isOpenedFromManage
+            ? _currentFolderId == null
+            : _currentFolderId == widget.initialFolderId);
+
     return PopScope(
-      canPop: !_isSelectionMode && _currentFolderId == null && _searchQuery.isEmpty,
+      canPop: canPopDirectly,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         if (_isSelectionMode) {
@@ -1625,8 +1660,15 @@ class _HomeScreenState extends State<HomeScreen> {
           });
           return;
         }
+        if (widget.isOpenedFromManage &&
+            (_currentFolderId == widget.initialFolderId || _currentFolderId == null)) {
+          Navigator.pop(context);
+          return;
+        }
         if (_currentFolderId != null) {
           _navigateUp();
+        } else if (widget.isOpenedFromManage) {
+          Navigator.pop(context);
         }
       },
       child: Scaffold(
@@ -1695,14 +1737,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 backgroundColor: const Color(0xFFF8FAFC),
                 elevation: 0,
                 scrolledUnderElevation: 0,
-                leading: _currentFolderId != null
+                leading: (_currentFolderId != null || widget.isOpenedFromManage)
                     ? IconButton(
                         icon: const Icon(
                           Icons.arrow_back_ios_new_rounded,
                           size: 20,
                           color: Color(0xFF1E293B),
                         ),
-                        tooltip: 'Kembali ke folder sebelumnya',
+                        tooltip: widget.isOpenedFromManage &&
+                                _currentFolderId == widget.initialFolderId
+                            ? 'Kembali ke Semua Folder'
+                            : 'Kembali',
                         onPressed: _navigateUp,
                       )
                     : null,
@@ -2426,11 +2471,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 builder: (context, hoveredId, child) {
                   final isHovered = hoveredId == '__ROOT__';
                   return _buildBreadcrumbItem(
-                    label: 'Beranda',
-                    icon: Icons.home_rounded,
-                    isActive: _currentFolderId == null,
+                    label: widget.isOpenedFromManage ? 'Semua Folder' : 'Beranda',
+                    icon: widget.isOpenedFromManage ? Icons.folder_copy_rounded : Icons.home_rounded,
+                    isActive: _currentFolderId == null && !widget.isOpenedFromManage,
                     isDropHovered: isHovered,
-                    onTap: () => _navigateToFolder(null),
+                    onTap: () {
+                      if (widget.isOpenedFromManage) {
+                        Navigator.pop(context);
+                      } else {
+                        _navigateToFolder(null);
+                      }
+                    },
                     color: const Color(0xFF4F46E5),
                   );
                 },
