@@ -244,6 +244,11 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
                         }
                       }
                     });
+                    _showToast(
+                      'Folder "${folder.name}" dihapus. Catatan dipindahkan ke Beranda',
+                      icon: Icons.delete_outline_rounded,
+                      iconColor: const Color(0xFFEF4444),
+                    );
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
@@ -312,6 +317,11 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
                       widget.notes.removeWhere((n) =>
                           n.folderId != null && allFolderIds.contains(n.folderId));
                     });
+                    _showToast(
+                      'Folder "${folder.name}" dan isinya berhasil dihapus',
+                      icon: Icons.delete_forever_rounded,
+                      iconColor: const Color(0xFFEF4444),
+                    );
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
@@ -734,6 +744,53 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showToast(
+    String message, {
+    IconData icon = Icons.check_rounded,
+    Color iconColor = const Color(0xFF10B981),
+    Duration duration = const Duration(milliseconds: 2400),
+  }) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        backgroundColor: const Color(0xFF1E293B),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        elevation: 6,
+        content: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.18),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: iconColor, size: 16),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  height: 1.3,
+                ),
+              ),
+            ),
+          ],
+        ),
+        duration: duration,
       ),
     );
   }

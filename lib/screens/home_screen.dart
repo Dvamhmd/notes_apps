@@ -403,7 +403,13 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             onDelete: (id) async {
               await _storageService.deleteNote(id);
-              _loadData();
+              await _loadData();
+              final noteTitle = note.title.isEmpty ? 'Catatan' : 'Catatan "${note.title}"';
+              _showToast(
+                '$noteTitle berhasil dihapus',
+                icon: Icons.delete_outline_rounded,
+                iconColor: const Color(0xFFEF4444),
+              );
             },
             onFolderCreated: (newFolder) async {
               await _storageService.addFolder(newFolder);
@@ -530,9 +536,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _deleteNote(String noteId) async {
+  Future<void> _deleteNote(String noteId, {String? noteTitle}) async {
     await _storageService.deleteNote(noteId);
-    _loadData();
+    await _loadData();
+    final name = (noteTitle != null && noteTitle.isNotEmpty) ? noteTitle : 'Catatan';
+    _showToast(
+      '$name berhasil dihapus',
+      icon: Icons.delete_outline_rounded,
+      iconColor: const Color(0xFFEF4444),
+    );
   }
 
   Future<void> _togglePin(NoteModel note) async {
@@ -631,7 +643,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
               _exitSelectionMode();
               await _loadData();
-              _showMoveSuccessSnackBar('$deletedTotal item berhasil dihapus.');
+              _showToast(
+                '$deletedTotal item berhasil dihapus',
+                icon: Icons.delete_sweep_rounded,
+                iconColor: const Color(0xFFEF4444),
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
@@ -1058,10 +1074,13 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Batal', style: TextStyle(color: Color(0xFF64748B))),
           ),
-          ElevatedButton(
+            ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
-              _deleteNote(note.id);
+              _deleteNote(
+                note.id,
+                noteTitle: note.title.isEmpty ? 'Catatan' : 'Catatan "${note.title}"',
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
@@ -1555,7 +1574,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       _currentFolderId = null;
                     }
                     await _loadData();
-                    _showMoveSuccessSnackBar('Folder dihapus. Catatan dipindahkan ke Beranda.');
+                    _showToast(
+                      'Folder "${folder.name}" dihapus. Catatan dipindahkan ke Beranda',
+                      icon: Icons.delete_outline_rounded,
+                      iconColor: const Color(0xFFEF4444),
+                    );
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
@@ -1622,7 +1645,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       _currentFolderId = null;
                     }
                     await _loadData();
-                    _showMoveSuccessSnackBar('Folder dan seluruh isinya berhasil dihapus.');
+                    _showToast(
+                      'Folder "${folder.name}" dan isinya berhasil dihapus',
+                      icon: Icons.delete_forever_rounded,
+                      iconColor: const Color(0xFFEF4444),
+                    );
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
@@ -2191,7 +2218,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showMoveSuccessSnackBar(String message) {
+  void _showToast(
+    String message, {
+    IconData icon = Icons.check_rounded,
+    Color iconColor = const Color(0xFF10B981),
+    Duration duration = const Duration(milliseconds: 2400),
+  }) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -2199,32 +2231,42 @@ class _HomeScreenState extends State<HomeScreen> {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         backgroundColor: const Color(0xFF1E293B),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        elevation: 6,
         content: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                color: Color(0xFF10B981),
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.18),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check, color: Colors.white, size: 14),
+              child: Icon(icon, color: iconColor, size: 16),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 message,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
+                  height: 1.3,
                 ),
               ),
             ),
           ],
         ),
-        duration: const Duration(milliseconds: 2200),
+        duration: duration,
       ),
     );
+  }
+
+  void _showMoveSuccessSnackBar(String message) {
+    _showToast(message, icon: Icons.check_rounded, iconColor: const Color(0xFF10B981));
   }
 
   Future<void> _handleNoteDroppedIntoFolder(
