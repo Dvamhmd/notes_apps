@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 
 class CustomToolbar extends StatefulWidget {
@@ -21,6 +20,9 @@ class CustomToolbar extends StatefulWidget {
 }
 
 class _CustomToolbarState extends State<CustomToolbar> {
+  bool _showFormatMenu = false;
+  bool _showListMenu = false;
+
   final List<Color> _colorPalette = [
     const Color(0xFF0F172A), // Charcoal / Default Black
     const Color(0xFF4F46E5), // Indigo
@@ -591,9 +593,228 @@ class _CustomToolbarState extends State<CustomToolbar> {
     );
   }
 
+  Widget _buildFormatFloatingBar() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFCBD5E1),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildFormatOptionCard(
+              label: 'Bold',
+              icon: Icons.format_bold_rounded,
+              isActive: _isBold,
+              onTap: _toggleBold,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: _buildFormatOptionCard(
+              label: 'Italic',
+              icon: Icons.format_italic_rounded,
+              isActive: _isItalic,
+              onTap: _toggleItalic,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: _buildFormatOptionCard(
+              label: 'Garis Bawah',
+              icon: Icons.format_underlined_rounded,
+              isActive: _isUnderline,
+              onTap: _toggleUnderline,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 1,
+            height: 30,
+            color: const Color(0xFFE2E8F0),
+          ),
+          const SizedBox(width: 6),
+          Tooltip(
+            message: 'Tutup Opsi',
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  _showFormatMenu = false;
+                });
+              },
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 34,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFFE2E8F0),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.close_rounded,
+                  size: 18,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildListFloatingBar() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFCBD5E1),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildFormatOptionCard(
+              label: 'Poin',
+              icon: Icons.format_list_bulleted_rounded,
+              isActive: _isBullet,
+              onTap: _toggleBullet,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: _buildFormatOptionCard(
+              label: 'Angka',
+              icon: Icons.format_list_numbered_rounded,
+              isActive: _isNumber,
+              onTap: _toggleNumber,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 1,
+            height: 30,
+            color: const Color(0xFFE2E8F0),
+          ),
+          const SizedBox(width: 6),
+          Tooltip(
+            message: 'Tutup Opsi',
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  _showListMenu = false;
+                });
+              },
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 34,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFFE2E8F0),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.close_rounded,
+                  size: 18,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormatOptionCard({
+    required String label,
+    required IconData icon,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF4F46E5) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isActive ? const Color(0xFF4F46E5) : const Color(0xFFE2E8F0),
+            width: 1.5,
+          ),
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF4F46E5).withValues(alpha: 0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 19,
+              color: isActive ? Colors.white : const Color(0xFF334155),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: isActive ? Colors.white : const Color(0xFF64748B),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasAnyStyleActive = _isBold || _isItalic || _isUnderline;
+    final hasAnyListActive = _isBullet || _isNumber;
 
     return Container(
       decoration: BoxDecoration(
@@ -609,138 +830,233 @@ class _CustomToolbarState extends State<CustomToolbar> {
           ),
         ],
       ),
-      child: SafeArea(
-        top: false,
-        bottom: true,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // 1. Format: Bold, Italic, Underline popover
-              FormatClickMenuButton(
-                isBold: _isBold,
-                isItalic: _isItalic,
-                isUnderline: _isUnderline,
-                hasAnyActive: hasAnyStyleActive,
-                onBoldSelected: _toggleBold,
-                onItalicSelected: _toggleItalic,
-                onUnderlineSelected: _toggleUnderline,
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Sub-bar format floating options
+          if (_showFormatMenu) _buildFormatFloatingBar(),
+          if (_showListMenu) _buildListFloatingBar(),
 
-              // 2. Ukuran Teks & Jarak Baris Picker
-              InkWell(
-                onTap: _showFontSizeAndSpacingDialog,
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.format_size_rounded,
-                        size: 16,
-                        color: Color(0xFF475569),
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        _currentSize,
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF1E293B),
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      const Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        size: 15,
-                        color: Color(0xFF64748B),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // 3. Font Color Picker
-              InkWell(
-                onTap: _showColorPicker,
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 14,
-                        height: 14,
+          // Main toolbar row
+          SafeArea(
+            top: false,
+            bottom: true,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // 1. Format: Bold, Italic, Underline button
+                  Tooltip(
+                    message: 'Format Teks (Bold, Italic, Garis Bawah)',
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _showFormatMenu = !_showFormatMenu;
+                          if (_showFormatMenu) _showListMenu = false;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: _currentColor,
-                          shape: BoxShape.circle,
+                          color: (_showFormatMenu || hasAnyStyleActive)
+                              ? const Color(0xFFEEF2FF)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: const Color(0xFFCBD5E1),
-                            width: 1,
+                            color: (_showFormatMenu || hasAnyStyleActive)
+                                ? const Color(0xFFC7D2FE)
+                                : const Color(0xFFE2E8F0),
+                            width: (_showFormatMenu || hasAnyStyleActive) ? 1.5 : 1,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Text(
-                        'Warna',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF1E293B),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.format_bold_rounded,
+                              size: 19,
+                              color: (_showFormatMenu || hasAnyStyleActive)
+                                  ? const Color(0xFF4F46E5)
+                                  : const Color(0xFF475569),
+                            ),
+                            const SizedBox(width: 3),
+                            Icon(
+                              _showFormatMenu
+                                  ? Icons.keyboard_arrow_up_rounded
+                                  : Icons.keyboard_arrow_down_rounded,
+                              size: 16,
+                              color: (_showFormatMenu || hasAnyStyleActive)
+                                  ? const Color(0xFF4F46E5)
+                                  : const Color(0xFF94A3B8),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 2),
-                      const Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        size: 15,
-                        color: Color(0xFF64748B),
+                    ),
+                  ),
+
+                  // 2. Ukuran Teks & Jarak Baris Picker
+                  InkWell(
+                    onTap: _showFontSizeAndSpacingDialog,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.format_size_rounded,
+                            size: 16,
+                            color: Color(0xFF475569),
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            _currentSize,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 15,
+                            color: Color(0xFF64748B),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // 3. Font Color Picker
+                  InkWell(
+                    onTap: _showColorPicker,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: _currentColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFFCBD5E1),
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Text(
+                            'Warna',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 15,
+                            color: Color(0xFF64748B),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // 4. Daftar: Bullet & Number List button
+                  Tooltip(
+                    message: 'Daftar (Poin / Angka)',
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _showListMenu = !_showListMenu;
+                          if (_showListMenu) _showFormatMenu = false;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: (_showListMenu || hasAnyListActive)
+                              ? const Color(0xFFEEF2FF)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: (_showListMenu || hasAnyListActive)
+                                ? const Color(0xFFC7D2FE)
+                                : const Color(0xFFE2E8F0),
+                            width: (_showListMenu || hasAnyListActive) ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _isNumber
+                                  ? Icons.format_list_numbered_rounded
+                                  : Icons.format_list_bulleted_rounded,
+                              size: 18,
+                              color: (_showListMenu || hasAnyListActive)
+                                  ? const Color(0xFF4F46E5)
+                                  : const Color(0xFF475569),
+                            ),
+                            const SizedBox(width: 2),
+                            Icon(
+                              _showListMenu
+                                  ? Icons.keyboard_arrow_up_rounded
+                                  : Icons.keyboard_arrow_down_rounded,
+                              size: 15,
+                              color: (_showListMenu || hasAnyListActive)
+                                  ? const Color(0xFF4F46E5)
+                                  : const Color(0xFF94A3B8),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // 5. Undo & Redo Buttons
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildToolbarButton(
+                        icon: Icons.undo_rounded,
+                        isActive: false,
+                        tooltip: 'Batal Perubahan (Undo)',
+                        onTap: () => widget.controller.undo(),
+                      ),
+                      const SizedBox(width: 3),
+                      _buildToolbarButton(
+                        icon: Icons.redo_rounded,
+                        isActive: false,
+                        tooltip: 'Ulangi (Redo)',
+                        onTap: () => widget.controller.redo(),
                       ),
                     ],
-                  ),
-                ),
-              ),
-
-              // 4. Daftar: Bullet & Number List popover
-              ListClickMenuButton(
-                isBullet: _isBullet,
-                isNumber: _isNumber,
-                onBulletSelected: _toggleBullet,
-                onNumberSelected: _toggleNumber,
-              ),
-
-              // 5. Undo & Redo Buttons
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildToolbarButton(
-                    icon: Icons.undo_rounded,
-                    isActive: false,
-                    tooltip: 'Batal Perubahan (Undo)',
-                    onTap: () => widget.controller.undo(),
-                  ),
-                  const SizedBox(width: 3),
-                  _buildToolbarButton(
-                    icon: Icons.redo_rounded,
-                    isActive: false,
-                    tooltip: 'Ulangi (Redo)',
-                    onTap: () => widget.controller.redo(),
                   ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -781,558 +1097,4 @@ class _CustomToolbarState extends State<CustomToolbar> {
       ),
     );
   }
-}
-
-/// 1-Button Click Popover Component for Bullet and Numbered Lists
-class ListClickMenuButton extends StatefulWidget {
-  final bool isBullet;
-  final bool isNumber;
-  final VoidCallback onBulletSelected;
-  final VoidCallback onNumberSelected;
-
-  const ListClickMenuButton({
-    super.key,
-    required this.isBullet,
-    required this.isNumber,
-    required this.onBulletSelected,
-    required this.onNumberSelected,
-  });
-
-  @override
-  State<ListClickMenuButton> createState() => _ListClickMenuButtonState();
-}
-
-class _ListClickMenuButtonState extends State<ListClickMenuButton> {
-  OverlayEntry? _overlayEntry;
-  final GlobalKey _buttonKey = GlobalKey();
-
-  @override
-  void dispose() {
-    _removeOverlay();
-    super.dispose();
-  }
-
-  void _togglePopover() {
-    if (_overlayEntry != null) {
-      _removeOverlay();
-    } else {
-      _showPopover();
-    }
-  }
-
-  void _showPopover() {
-    _removeOverlay();
-    HapticFeedback.lightImpact();
-
-    final renderBox =
-        _buttonKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
-
-    final size = renderBox.size;
-    final buttonGlobalPos = renderBox.localToGlobal(Offset.zero);
-
-    const menuWidth = 180.0;
-    const menuHeight = 78.0;
-
-    final screenWidth = MediaQuery.of(context).size.width;
-    final buttonCenterX = buttonGlobalPos.dx + (size.width / 2);
-    var menuLeft = buttonCenterX - (menuWidth / 2);
-    if (menuLeft < 10) menuLeft = 10;
-    if (menuLeft + menuWidth > screenWidth - 10) {
-      menuLeft = screenWidth - menuWidth - 10;
-    }
-
-    final menuTop = buttonGlobalPos.dy - menuHeight - 10;
-
-    _overlayEntry = OverlayEntry(
-      builder: (ctx) {
-        return Stack(
-          children: [
-            // Fullscreen barrier to close on tap outside
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _removeOverlay,
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-            // Floating Popover Card
-            Positioned(
-              left: menuLeft,
-              top: menuTop,
-              child: Material(
-                color: Colors.transparent,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: menuWidth,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: const Color(0xFFCBD5E1),
-                          width: 1.2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF0F172A).withValues(alpha: 0.16),
-                            blurRadius: 18,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildOptionCard(
-                            label: 'Poin',
-                            icon: Icons.format_list_bulleted_rounded,
-                            isActive: widget.isBullet,
-                            onTap: () {
-                              widget.onBulletSelected();
-                              _removeOverlay();
-                            },
-                          ),
-                          _buildOptionCard(
-                            label: 'Angka',
-                            icon: Icons.format_list_numbered_rounded,
-                            isActive: widget.isNumber,
-                            onTap: () {
-                              widget.onNumberSelected();
-                              _removeOverlay();
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Downward Pointer Arrow
-                    CustomPaint(
-                      size: const Size(16, 8),
-                      painter: _PopoverArrowPainter(
-                        color: Colors.white,
-                        strokeColor: const Color(0xFFCBD5E1),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    Overlay.of(context).insert(_overlayEntry!);
-  }
-
-  void _removeOverlay() {
-    if (_overlayEntry != null) {
-      _overlayEntry?.remove();
-      _overlayEntry = null;
-    }
-  }
-
-  Widget _buildOptionCard({
-    required String label,
-    required IconData icon,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF4F46E5) : const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isActive ? const Color(0xFF4F46E5) : const Color(0xFFE2E8F0),
-            width: 1.5,
-          ),
-          boxShadow: isActive
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF4F46E5).withValues(alpha: 0.3),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 20,
-              color: isActive ? Colors.white : const Color(0xFF334155),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                color: isActive ? Colors.white : const Color(0xFF64748B),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final hasAnyActive = widget.isBullet || widget.isNumber;
-    final activeIcon = widget.isNumber
-        ? Icons.format_list_numbered_rounded
-        : Icons.format_list_bulleted_rounded;
-
-    return Tooltip(
-      message: 'Daftar (Poin / Angka)',
-      child: InkWell(
-        key: _buttonKey,
-        onTap: _togglePopover,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
-          decoration: BoxDecoration(
-            color: hasAnyActive ? const Color(0xFFEEF2FF) : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: hasAnyActive
-                  ? const Color(0xFFC7D2FE)
-                  : const Color(0xFFE2E8F0),
-              width: hasAnyActive ? 1.5 : 1,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                activeIcon,
-                size: 18,
-                color: hasAnyActive
-                    ? const Color(0xFF4F46E5)
-                    : const Color(0xFF475569),
-              ),
-              const SizedBox(width: 2),
-              Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 15,
-                color: hasAnyActive
-                    ? const Color(0xFF4F46E5)
-                    : const Color(0xFF94A3B8),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 1-Button Click Popover Component for Bold, Italic, and Underline
-class FormatClickMenuButton extends StatefulWidget {
-  final bool isBold;
-  final bool isItalic;
-  final bool isUnderline;
-  final bool hasAnyActive;
-  final VoidCallback onBoldSelected;
-  final VoidCallback onItalicSelected;
-  final VoidCallback onUnderlineSelected;
-
-  const FormatClickMenuButton({
-    super.key,
-    required this.isBold,
-    required this.isItalic,
-    required this.isUnderline,
-    required this.hasAnyActive,
-    required this.onBoldSelected,
-    required this.onItalicSelected,
-    required this.onUnderlineSelected,
-  });
-
-  @override
-  State<FormatClickMenuButton> createState() => _FormatClickMenuButtonState();
-}
-
-class _FormatClickMenuButtonState extends State<FormatClickMenuButton> {
-  OverlayEntry? _overlayEntry;
-  final GlobalKey _buttonKey = GlobalKey();
-
-  @override
-  void dispose() {
-    _removeOverlay();
-    super.dispose();
-  }
-
-  void _togglePopover() {
-    if (_overlayEntry != null) {
-      _removeOverlay();
-    } else {
-      _showPopover();
-    }
-  }
-
-  void _showPopover() {
-    _removeOverlay();
-    HapticFeedback.lightImpact();
-
-    final renderBox =
-        _buttonKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
-
-    final size = renderBox.size;
-    final buttonGlobalPos = renderBox.localToGlobal(Offset.zero);
-
-    const menuWidth = 230.0;
-    const menuHeight = 78.0;
-
-    final screenWidth = MediaQuery.of(context).size.width;
-    final buttonCenterX = buttonGlobalPos.dx + (size.width / 2);
-    var menuLeft = buttonCenterX - (menuWidth / 2);
-    if (menuLeft < 10) menuLeft = 10;
-    if (menuLeft + menuWidth > screenWidth - 10) {
-      menuLeft = screenWidth - menuWidth - 10;
-    }
-
-    final menuTop = buttonGlobalPos.dy - menuHeight - 10;
-
-    _overlayEntry = OverlayEntry(
-      builder: (ctx) {
-        return Stack(
-          children: [
-            // Fullscreen barrier to close on tap outside
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _removeOverlay,
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-            // Floating Popover Card
-            Positioned(
-              left: menuLeft,
-              top: menuTop,
-              child: Material(
-                color: Colors.transparent,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: menuWidth,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: const Color(0xFFCBD5E1),
-                          width: 1.2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF0F172A).withValues(alpha: 0.16),
-                            blurRadius: 18,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildOptionCard(
-                            label: 'Bold',
-                            icon: Icons.format_bold_rounded,
-                            isActive: widget.isBold,
-                            onTap: () {
-                              widget.onBoldSelected();
-                              _removeOverlay();
-                            },
-                          ),
-                          _buildOptionCard(
-                            label: 'Italic',
-                            icon: Icons.format_italic_rounded,
-                            isActive: widget.isItalic,
-                            onTap: () {
-                              widget.onItalicSelected();
-                              _removeOverlay();
-                            },
-                          ),
-                          _buildOptionCard(
-                            label: 'Underline',
-                            icon: Icons.format_underlined_rounded,
-                            isActive: widget.isUnderline,
-                            onTap: () {
-                              widget.onUnderlineSelected();
-                              _removeOverlay();
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Downward Pointer Arrow
-                    CustomPaint(
-                      size: const Size(16, 8),
-                      painter: _PopoverArrowPainter(
-                        color: Colors.white,
-                        strokeColor: const Color(0xFFCBD5E1),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    Overlay.of(context).insert(_overlayEntry!);
-  }
-
-  void _removeOverlay() {
-    if (_overlayEntry != null) {
-      _overlayEntry?.remove();
-      _overlayEntry = null;
-    }
-  }
-
-  Widget _buildOptionCard({
-    required String label,
-    required IconData icon,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF4F46E5) : const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isActive ? const Color(0xFF4F46E5) : const Color(0xFFE2E8F0),
-            width: 1.5,
-          ),
-          boxShadow: isActive
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF4F46E5).withValues(alpha: 0.3),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 20,
-              color: isActive ? Colors.white : const Color(0xFF334155),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                color: isActive ? Colors.white : const Color(0xFF64748B),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: 'Format Teks (Bold, Italic, Underline)',
-      child: InkWell(
-        key: _buttonKey,
-        onTap: _togglePopover,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: widget.hasAnyActive ? const Color(0xFFEEF2FF) : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: widget.hasAnyActive
-                  ? const Color(0xFFC7D2FE)
-                  : const Color(0xFFE2E8F0),
-              width: widget.hasAnyActive ? 1.5 : 1,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.format_bold_rounded,
-                size: 19,
-                color: widget.hasAnyActive
-                    ? const Color(0xFF4F46E5)
-                    : const Color(0xFF475569),
-              ),
-              const SizedBox(width: 3),
-              Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 16,
-                color: widget.hasAnyActive
-                    ? const Color(0xFF4F46E5)
-                    : const Color(0xFF94A3B8),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Custom painter for downward pointer triangle
-class _PopoverArrowPainter extends CustomPainter {
-  final Color color;
-  final Color strokeColor;
-
-  _PopoverArrowPainter({required this.color, required this.strokeColor});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width / 2, size.height)
-      ..lineTo(size.width, 0)
-      ..close();
-
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final strokePaint = Paint()
-      ..color = strokeColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-
-    canvas.drawPath(path, paint);
-    canvas.drawPath(path, strokePaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
