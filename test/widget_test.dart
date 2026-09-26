@@ -6,6 +6,7 @@ import 'package:notes_app/main.dart';
 import 'package:notes_app/models/note_model.dart';
 import 'package:notes_app/screens/note_editor_screen.dart';
 import 'package:notes_app/services/rich_clipboard_service.dart';
+import 'package:notes_app/services/smart_quill_controller.dart';
 import 'package:notes_app/widgets/note_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -198,6 +199,133 @@ void main() {
     final numberRect = tester.getRect(numberFinder);
     expect(numberRect.height, greaterThan(0));
     expect(numberRect.width, greaterThan(0));
+  });
+  test('Test SmartQuillController maintains inline format changes on newline and space after text deletion', () {
+    final doc = Document();
+    final controller = SmartQuillController(
+      document: doc,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+
+    // 1. Line 1: Type "Hello" with bold
+    controller.formatSelection(Attribute.bold);
+    controller.replaceText(0, 0, 'Hello', const TextSelection.collapsed(offset: 5));
+    expect(controller.getSelectionStyle().containsKey(Attribute.bold.key), isTrue);
+
+    // 2. Press Enter to Line 2
+    controller.replaceText(5, 0, '\n', const TextSelection.collapsed(offset: 6));
+
+    // 3. Turn off bold on Line 2
+    controller.formatSelection(Attribute.clone(Attribute.bold, null));
+    expect(controller.getSelectionStyle().containsKey(Attribute.bold.key), isFalse);
+
+    // 4. Type "world" on Line 2
+    controller.replaceText(6, 0, 'world', const TextSelection.collapsed(offset: 11));
+    expect(controller.getSelectionStyle().containsKey(Attribute.bold.key), isFalse);
+
+    // 5. Delete all text "world" on Line 2 (back to offset 6, start of line 2)
+    controller.replaceText(6, 5, '', const TextSelection.collapsed(offset: 6));
+    expect(controller.getSelectionStyle().containsKey(Attribute.bold.key), isFalse,
+        reason: 'Line 2 should retain unbolded style after deleting all text on line 2');
+
+    // 6. Retype "again" on Line 2 -> verify it remains unbolded
+    controller.replaceText(6, 0, 'again', const TextSelection.collapsed(offset: 11));
+    final againOp = controller.document.toDelta().toList().firstWhere(
+        (op) => op.data is String && (op.data as String).contains('again'));
+    expect(againOp.attributes == null || againOp.attributes!['bold'] != true, isTrue);
+
+    // 7. Same line space test:
+    var curOffset = controller.document.length - 1;
+    controller.updateSelection(TextSelection.collapsed(offset: curOffset), ChangeSource.local);
+
+    // Turn bold ON and type word with space
+    controller.formatSelection(Attribute.bold);
+    controller.replaceText(curOffset, 0, ' boldword ', TextSelection.collapsed(offset: curOffset + 10));
+
+    // After space, turn bold OFF and type word
+    curOffset = controller.document.length - 1;
+    controller.formatSelection(Attribute.clone(Attribute.bold, null));
+    controller.replaceText(curOffset, 0, 'normalword', TextSelection.collapsed(offset: curOffset + 10));
+
+    // Delete "normalword" back to space
+    curOffset = controller.document.length - 1;
+    controller.replaceText(curOffset - 10, 10, '', TextSelection.collapsed(offset: curOffset - 10));
+    expect(controller.getSelectionStyle().containsKey(Attribute.bold.key), isFalse,
+        reason: 'Should retain unbolded style after space even when deleting back to space');
+
+    // Retype "retypednormal" after space -> verify it remains unbolded
+    curOffset = controller.document.length - 1;
+    controller.replaceText(curOffset, 0, 'retypednormal', TextSelection.collapsed(offset: curOffset + 13));
+    final retypedOp = controller.document.toDelta().toList().firstWhere(
+        (op) => op.data is String && (op.data as String).contains('retypednormal'));
+    expect(retypedOp.attributes == null || retypedOp.attributes!['bold'] != true, isTrue);
+
+    // 8. Test character-by-character deletion back to newline boundary
+    curOffset = controller.document.length - 1;
+    controller.updateSelection(TextSelection.collapsed(offset: curOffset), ChangeSource.local);
+    controller.replaceText(curOffset, 0, '\n', TextSelection.collapsed(offset: curOffset + 1));
+    
+    // Line 3: Bold text
+    curOffset = controller.document.length - 1;
+    controller.formatSelection(Attribute.bold);
+    controller.replaceText(curOffset, 0, 'Line 3 Bold', TextSelection.collapsed(offset: curOffset + 11));
+    curOffset = controller.document.length - 1;
+    controller.replaceText(curOffset, 0, '\n', TextSelection.collapsed(offset: curOffset + 1));
+
+    // Line 4: Turn bold off
+    curOffset = controller.document.length - 1;
+    controller.formatSelection(Attribute.clone(Attribute.bold, null));
+    controller.replaceText(curOffset, 0, 'abc', TextSelection.collapsed(offset: curOffset + 3));
+
+    // Backspace character by character
+    curOffset = controller.document.length - 1;
+    controller.replaceText(curOffset - 1, 1, '', TextSelection.collapsed(offset: curOffset - 1));
+    curOffset = controller.document.length - 1;
+    controller.replaceText(curOffset - 1, 1, '', TextSelection.collapsed(offset: curOffset - 1));
+    curOffset = controller.document.length - 1;
+    controller.replaceText(curOffset - 1, 1, '', TextSelection.collapsed(offset: curOffset - 1));
+
+    expect(controller.getSelectionStyle().containsKey(Attribute.bold.key), isFalse,
+        reason: 'Line 4 should still be unbolded after character-by-character deletion back to newline');
+    
+    // Retype "xyz" on line 4
+    curOffset = controller.document.length - 1;
+    controller.replaceText(curOffset, 0, 'xyz', TextSelection.collapsed(offset: curOffset + 3));
+    final xyzOp = controller.document.toDelta().toList().firstWhere(
+        (op) => op.data is String && (op.data as String).contains('xyz'));
+    expect(xyzOp.attributes == null || xyzOp.attributes!['bold'] != true, isTrue);
+  });
+
+  test('Test SmartQuillController preserves color and italic changes across line and space deletions', () {
+    final doc = Document();
+    final controller = SmartQuillController(
+      document: doc,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+
+    // Line 1: Italic text
+    controller.formatSelection(Attribute.italic);
+    controller.replaceText(0, 0, 'Italic Line', const TextSelection.collapsed(offset: 11));
+    controller.replaceText(11, 0, '\n', const TextSelection.collapsed(offset: 12));
+
+    // Line 2: Turn off italic, set Color Blue
+    controller.formatSelection(Attribute.clone(Attribute.italic, null));
+    controller.formatSelection(const ColorAttribute('#0000FF'));
+    controller.replaceText(12, 0, 'Blue Text', const TextSelection.collapsed(offset: 21));
+
+    // Delete "Blue Text" on Line 2
+    controller.replaceText(12, 9, '', const TextSelection.collapsed(offset: 12));
+
+    // Selection style should not have italic, but should have blue color
+    expect(controller.getSelectionStyle().containsKey(Attribute.italic.key), isFalse);
+    expect(controller.getSelectionStyle().containsKey(Attribute.color.key), isTrue);
+
+    // Retype text on Line 2
+    controller.replaceText(12, 0, 'Retyped Blue', const TextSelection.collapsed(offset: 24));
+    final blueOp = controller.document.toDelta().toList().firstWhere(
+        (op) => op.data is String && (op.data as String).contains('Retyped Blue'));
+    expect(blueOp.attributes?['italic'], isNull);
+    expect(blueOp.attributes?['color'], '#0000FF');
   });
 }
 

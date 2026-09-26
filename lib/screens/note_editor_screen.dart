@@ -6,6 +6,7 @@ import 'package:flutter_quill/flutter_quill.dart';
 import '../models/folder_model.dart';
 import '../models/note_model.dart';
 import '../services/rich_clipboard_service.dart';
+import '../services/smart_quill_controller.dart';
 import '../utils/folder_utils.dart';
 import '../widgets/custom_selection_controls.dart';
 import '../widgets/custom_toolbar.dart';
@@ -34,7 +35,7 @@ class NoteEditorScreen extends StatefulWidget {
 
 class _NoteEditorScreenState extends State<NoteEditorScreen> {
   late TextEditingController _titleController;
-  late QuillController _quillController;
+  late SmartQuillController _quillController;
 
   late String? _currentFolderId;
   late bool _isPinned;
@@ -61,7 +62,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
         final dynamic decoded = json.decode(widget.note.contentJson);
         if (decoded is List) {
           final doc = Document.fromJson(decoded);
-          _quillController = QuillController(
+          _quillController = SmartQuillController(
             document: doc,
             selection: const TextSelection.collapsed(offset: 0),
           );
@@ -70,7 +71,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
       }
     } catch (_) {}
 
-    _quillController = QuillController.basic();
+    _quillController = SmartQuillController.basic();
   }
 
   @override
