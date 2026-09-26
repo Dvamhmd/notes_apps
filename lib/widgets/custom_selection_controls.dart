@@ -1,9 +1,10 @@
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// Custom Material TextSelectionControls that provides prominent, touch-friendly
-/// Android-style teardrop/circular handles (bulat-bulat) for text selection,
-/// while completely suppressing any stuck floating Paste indicators/popups.
+/// Android-style teardrop/circular handles for text selection and cursor positioning,
+/// while maintaining a clean look and suppressing stuck legacy popups.
 class CustomTouchTextSelectionControls extends MaterialTextSelectionControls {
   static final CustomTouchTextSelectionControls instance =
       CustomTouchTextSelectionControls();
@@ -32,11 +33,6 @@ class CustomTouchTextSelectionControls extends MaterialTextSelectionControls {
     double textHeight, [
     VoidCallback? onTap,
   ]) {
-    // Suppress single cursor collapsed handle so no paste popup is triggered on tap
-    if (type == TextSelectionHandleType.collapsed) {
-      return const SizedBox.shrink();
-    }
-
     final theme = Theme.of(context);
     final handleColor = theme.textSelectionTheme.selectionHandleColor ??
         theme.colorScheme.primary;
@@ -73,7 +69,7 @@ class CustomTouchTextSelectionControls extends MaterialTextSelectionControls {
     ValueListenable<ClipboardStatus>? clipboardStatus,
     Offset? lastSecondaryTapDownPosition,
   ) {
-    // Suppress floating toolbar to prevent stuck paste overlays on web/desktop
+    // Suppress legacy floating toolbar to prevent stuck paste overlays
     return const SizedBox.shrink();
   }
 }
@@ -144,6 +140,23 @@ class _TeardropHandlePainter extends CustomPainter {
         clockwise: true,
       );
       path.lineTo(0, 0);
+      path.close();
+    } else if (type == TextSelectionHandleType.collapsed) {
+      // Collapsed cursor handle: Centered teardrop pointing straight up to cursor tip at (13, 0)
+      const double r = 10.5;
+      const double cy = 15.0;
+      final double cx = size.width / 2; // 13.0
+      final double tx = 10.5 * math.sqrt(cy * cy - r * r) / cy; // ~7.50
+      final double ty = cy - (r * r / cy); // ~7.65
+
+      path.moveTo(cx, 0);
+      path.lineTo(cx + tx, ty);
+      path.arcToPoint(
+        Offset(cx - tx, ty),
+        radius: const Radius.circular(r),
+        clockwise: true,
+      );
+      path.lineTo(cx, 0);
       path.close();
     }
 
