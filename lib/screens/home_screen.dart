@@ -2355,6 +2355,194 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<bool?> _showConfirmDropDialog({
+    required String itemTitle,
+    required bool isNote,
+    required String targetName,
+    required Color targetColor,
+    Color? itemColor,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEF2FF),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.drive_file_move_rounded,
+                color: Color(0xFF4F46E5),
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                isNote ? 'Pindahkan Catatan?' : 'Pindahkan Folder?',
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 4),
+            Text(
+              'Apakah Anda yakin ingin memindahkan ${isNote ? 'catatan' : 'folder'} ini?',
+              style: const TextStyle(
+                fontSize: 13.5,
+                color: Color(0xFF64748B),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                children: [
+                  // Item asal
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: (itemColor ?? const Color(0xFF4F46E5)).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          isNote ? Icons.description_rounded : Icons.folder_rounded,
+                          size: 16,
+                          color: itemColor ?? const Color(0xFF4F46E5),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          itemTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      children: [
+                        SizedBox(width: 12),
+                        Icon(
+                          Icons.arrow_downward_rounded,
+                          size: 16,
+                          color: Color(0xFF94A3B8),
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: Color(0xFFE2E8F0),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Folder tujuan
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: targetColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          targetName == 'Beranda' || targetName == 'Semua Folder'
+                              ? (widget.isOpenedFromManage ? Icons.folder_copy_rounded : Icons.home_rounded)
+                              : Icons.folder_rounded,
+                          size: 16,
+                          color: targetColor,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          targetName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            color: targetColor == const Color(0xFF4F46E5)
+                                ? const Color(0xFF1E293B)
+                                : targetColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF64748B),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text(
+              'Batal',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4F46E5),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text(
+              'Pindahkan',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _handleDropOnEnd() async {
     final targetId = _activeHoveredFolderId.value;
     final dragged = _draggedItem;
@@ -2363,27 +2551,55 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (targetId == null || dragged == null) return;
 
-    if (targetId == '__ROOT__') {
-      if (dragged is NoteModel) {
+    final targetName = targetId == '__ROOT__'
+        ? (widget.isOpenedFromManage ? 'Semua Folder' : 'Beranda')
+        : (_getFolderById(targetId)?.name ?? 'Folder Target');
+
+    final targetColor = targetId == '__ROOT__'
+        ? const Color(0xFF4F46E5)
+        : Color(_getFolderById(targetId)?.colorValue ?? 0xFF4F46E5);
+
+    if (dragged is NoteModel) {
+      final confirmed = await _showConfirmDropDialog(
+        itemTitle: dragged.title.isEmpty ? 'Tanpa Judul' : dragged.title,
+        isNote: true,
+        targetName: targetName,
+        targetColor: targetColor,
+      );
+      if (confirmed != true) return;
+
+      if (targetId == '__ROOT__') {
         await _storageService.moveNote(dragged.id, null);
         await _loadData();
         _showMoveSuccessSnackBar(
-          'Catatan "${dragged.title.isEmpty ? 'Tanpa Judul' : dragged.title}" dipindahkan ke Beranda',
+          'Catatan "${dragged.title.isEmpty ? 'Tanpa Judul' : dragged.title}" dipindahkan ke $targetName',
         );
-      } else if (dragged is FolderModel) {
+      } else {
+        final targetFolder = _getFolderById(targetId);
+        if (targetFolder != null) {
+          await _handleNoteDroppedIntoFolder(dragged, targetFolder);
+        }
+      }
+    } else if (dragged is FolderModel) {
+      final confirmed = await _showConfirmDropDialog(
+        itemTitle: dragged.name,
+        isNote: false,
+        targetName: targetName,
+        targetColor: targetColor,
+        itemColor: Color(dragged.colorValue),
+      );
+      if (confirmed != true) return;
+
+      if (targetId == '__ROOT__') {
         final updated = dragged.copyWith(clearParent: true);
         await _storageService.updateFolder(updated);
         await _loadData();
         _showMoveSuccessSnackBar(
-          'Folder "${dragged.name}" dipindahkan ke Beranda',
+          'Folder "${dragged.name}" dipindahkan ke $targetName',
         );
-      }
-    } else {
-      final targetFolder = _getFolderById(targetId);
-      if (targetFolder != null) {
-        if (dragged is NoteModel) {
-          await _handleNoteDroppedIntoFolder(dragged, targetFolder);
-        } else if (dragged is FolderModel) {
+      } else {
+        final targetFolder = _getFolderById(targetId);
+        if (targetFolder != null) {
           await _handleFolderDroppedIntoFolder(dragged, targetFolder);
         }
       }
