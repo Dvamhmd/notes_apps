@@ -13,6 +13,7 @@ import '../widgets/custom_toolbar.dart';
 import '../widgets/divider_embed_builder.dart';
 import '../widgets/line_spacing_sheet.dart';
 import '../widgets/move_note_dialog.dart';
+import '../widgets/quill_cursor_handle_overlay.dart';
 
 class NoteEditorScreen extends StatefulWidget {
   final NoteModel note;
@@ -37,6 +38,9 @@ class NoteEditorScreen extends StatefulWidget {
 class _NoteEditorScreenState extends State<NoteEditorScreen> {
   late TextEditingController _titleController;
   late SmartQuillController _quillController;
+  late FocusNode _editorFocusNode;
+  late ScrollController _editorScrollController;
+  final GlobalKey<QuillEditorState> _editorKey = GlobalKey<QuillEditorState>();
 
   late String? _currentFolderId;
   late bool _isPinned;
@@ -47,6 +51,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.note.title);
+    _editorFocusNode = FocusNode();
+    _editorScrollController = ScrollController();
     _currentFolderId = widget.note.folderId;
     _isPinned = widget.note.isPinned;
     _lineSpacing = widget.note.lineSpacing ?? 1.6;
@@ -80,6 +86,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
     _debounceTimer?.cancel();
     _saveImmediately();
     _titleController.dispose();
+    _editorFocusNode.dispose();
+    _editorScrollController.dispose();
     _quillController.dispose();
     super.dispose();
   }
@@ -457,14 +465,22 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                             },
                           ),
                         },
-                        child: QuillEditor.basic(
+                        child: QuillCursorHandleOverlay(
                           controller: _quillController,
-                          config: QuillEditorConfig(
-                            enableInteractiveSelection: true,
-                            showCursor: true,
-                            paintCursorAboveText: true,
-                            enableSelectionToolbar: true,
-                            textSelectionControls: CustomTouchTextSelectionControls.instance,
+                          focusNode: _editorFocusNode,
+                          scrollController: _editorScrollController,
+                          editorKey: _editorKey,
+                          child: QuillEditor.basic(
+                            key: _editorKey,
+                            controller: _quillController,
+                            focusNode: _editorFocusNode,
+                            scrollController: _editorScrollController,
+                            config: QuillEditorConfig(
+                              enableInteractiveSelection: true,
+                              showCursor: true,
+                              paintCursorAboveText: true,
+                              enableSelectionToolbar: true,
+                              textSelectionControls: CustomTouchTextSelectionControls.instance,
                             contextMenuBuilder: (context, rawEditorState) {
                               final buttonItems = rawEditorState.contextMenuButtonItems;
                               return AdaptiveTextSelectionToolbar.buttonItems(
@@ -662,6 +678,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                         ),
                       ),
                     ),
+                  ),
                   ),
                 ),
                 // Custom Toolbar for Rich Text Styling & Line Spacing

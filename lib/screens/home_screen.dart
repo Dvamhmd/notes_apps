@@ -7,6 +7,7 @@ import '../models/note_model.dart';
 import '../models/search_filter_model.dart';
 import '../services/storage_service.dart';
 import '../utils/folder_utils.dart';
+import '../widgets/custom_selection_controls.dart';
 import '../widgets/create_folder_dialog.dart';
 import '../widgets/create_note_dialog.dart';
 import '../widgets/move_note_dialog.dart';
@@ -982,6 +983,8 @@ class _HomeScreenState extends State<HomeScreen> {
           key: formKey,
           child: TextFormField(
             controller: controller,
+            selectionControls: CustomTouchTextSelectionControls.instance,
+            enableInteractiveSelection: true,
             autofocus: true,
             textCapitalization: TextCapitalization.sentences,
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
@@ -1145,6 +1148,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 6),
                   TextFormField(
                     controller: nameController,
+                    selectionControls: CustomTouchTextSelectionControls.instance,
+                    enableInteractiveSelection: true,
                     autofocus: true,
                     textCapitalization: TextCapitalization.words,
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
@@ -2043,6 +2048,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               Expanded(
                                 child: TextField(
                                   controller: _searchController,
+                                  selectionControls: CustomTouchTextSelectionControls.instance,
+                                  enableInteractiveSelection: true,
                                   onChanged: (val) {
                                     setState(() {
                                       _searchQuery = val;

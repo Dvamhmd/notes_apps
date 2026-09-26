@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../models/folder_model.dart';
 import '../utils/folder_utils.dart';
+import 'custom_selection_controls.dart';
 
 class CreateFolderDialog extends StatefulWidget {
   final List<FolderModel> folders;
@@ -122,6 +123,8 @@ class _CreateFolderDialogState extends State<CreateFolderDialog> {
                 const SizedBox(height: 6),
                 TextFormField(
                   controller: _nameController,
+                  selectionControls: CustomTouchTextSelectionControls.instance,
+                  enableInteractiveSelection: true,
                   autofocus: true,
                   textCapitalization: TextCapitalization.words,
                   style: const TextStyle(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/folder_model.dart';
 import '../utils/folder_utils.dart';
+import 'custom_selection_controls.dart';
 
 class CreateNoteDialog extends StatefulWidget {
   final List<FolderModel> folders;
@@ -99,6 +100,8 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
                 const SizedBox(height: 6),
                 TextFormField(
                   controller: _titleController,
+                  selectionControls: CustomTouchTextSelectionControls.instance,
+                  enableInteractiveSelection: true,
                   autofocus: true,
                   textCapitalization: TextCapitalization.sentences,
                   style: const TextStyle(
