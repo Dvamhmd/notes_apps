@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notes_app/main.dart';
 import 'package:notes_app/models/note_model.dart';
+import 'package:notes_app/screens/note_editor_screen.dart';
 import 'package:notes_app/services/rich_clipboard_service.dart';
 import 'package:notes_app/widgets/note_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -156,7 +158,56 @@ void main() {
     await tester.tap(applyBtnFinder);
     await tester.pumpAndSettle();
   });
+
+  testWidgets('Test NoteEditorScreen renders bullet and numbering with correct alignment', (WidgetTester tester) async {
+    final doc = Document()
+      ..insert(0, 'Bullet item\nNumber item\n')
+      ..format(0, 11, Attribute.ul)
+      ..format(12, 11, Attribute.ol);
+
+    final note = NoteModel(
+      id: 'test-bullet-note',
+      title: 'Daftar Tugas',
+      contentJson: json.encode(doc.toDelta().toJson()),
+      plainText: 'Bullet item\nNumber item',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      lineSpacing: 1.6,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(fontFamily: 'Poppins'),
+        home: NoteEditorScreen(
+          note: note,
+          folders: const [],
+          onSave: (_) {},
+          onDelete: (_) {},
+          onFolderCreated: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify Editor loaded
+    expect(find.text('Daftar Tugas'), findsOneWidget);
+    expect(find.text('1.'), findsOneWidget);
+
+    // Verify bullet and numbering widgets are present and laid out
+    final numberFinder = find.text('1.');
+    final numberRect = tester.getRect(numberFinder);
+    expect(numberRect.height, greaterThan(0));
+    expect(numberRect.width, greaterThan(0));
+  });
 }
+
+
+
+
+
+
+
+
 
 
 

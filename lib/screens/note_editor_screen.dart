@@ -504,6 +504,60 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                               }
                               return const TextStyle();
                             },
+                            // ignore: experimental_member_use
+                            customLeadingBlockBuilder: (node, config) {
+                              final baseListStyle = TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 15,
+                                color: const Color(0xFF1E293B),
+                                height: _lineSpacing,
+                              );
+                              final effectiveStyle = (config.style ?? baseListStyle).copyWith(
+                                fontFamily: 'Poppins',
+                                fontSize: 15,
+                                height: _lineSpacing,
+                              );
+                              final firstLineHeight = 15.0 * _lineSpacing;
+
+                              if (config.attribute == Attribute.ul) {
+                                return Container(
+                                  width: config.width ?? 28.0,
+                                  height: firstLineHeight,
+                                  padding: EdgeInsetsDirectional.only(end: config.padding ?? 8.0),
+                                  alignment: AlignmentDirectional.centerEnd,
+                                  child: Container(
+                                    width: 5.5,
+                                    height: 5.5,
+                                    decoration: BoxDecoration(
+                                      color: effectiveStyle.color ?? const Color(0xFF1E293B),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              if (config.attribute == Attribute.ol) {
+                                final numberStr =
+                                    '${config.getIndexNumberByIndent ?? '1'}${config.withDot ? '.' : ''}';
+                                return Container(
+                                  width: config.width ?? 28.0,
+                                  height: firstLineHeight,
+                                  padding: EdgeInsetsDirectional.only(end: config.padding ?? 8.0),
+                                  alignment: AlignmentDirectional.centerEnd,
+                                  child: Text(
+                                    numberStr,
+                                    style: effectiveStyle,
+                                    strutStyle: StrutStyle.fromTextStyle(
+                                      effectiveStyle,
+                                      forceStrutHeight: true,
+                                    ),
+                                    textAlign: TextAlign.end,
+                                  ),
+                                );
+                              }
+
+                              return null;
+                            },
                             customStyles: DefaultStyles(
                               paragraph: DefaultTextBlockStyle(
                                 TextStyle(
