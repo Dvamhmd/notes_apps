@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
+import 'divider_sheet.dart';
 
 class CustomToolbar extends StatefulWidget {
   final QuillController controller;
@@ -22,6 +23,7 @@ class CustomToolbar extends StatefulWidget {
 class _CustomToolbarState extends State<CustomToolbar> {
   bool _showFormatMenu = false;
   bool _showListMenu = false;
+  bool _showHistoryMenu = false;
 
   final List<Color> _colorPalette = [
     const Color(0xFF0F172A), // Charcoal / Default Black
@@ -144,6 +146,23 @@ class _CustomToolbarState extends State<CustomToolbar> {
     );
   }
 
+  double get _currentLineSpacing {
+    final style = widget.controller.getSelectionStyle();
+    final attr = style.attributes[Attribute.lineHeight.key];
+    if (attr != null && attr.value != null) {
+      final val = double.tryParse(attr.value.toString());
+      if (val != null) return val;
+    }
+    return widget.lineSpacing;
+  }
+
+  void _applyLineSpacing(double val) {
+    widget.controller.formatSelection(
+      Attribute.clone(Attribute.lineHeight, val),
+    );
+    widget.onLineSpacingChanged?.call(val);
+  }
+
   void _showFontSizeAndSpacingDialog() {
     showModalBottomSheet(
       context: context,
@@ -153,7 +172,7 @@ class _CustomToolbarState extends State<CustomToolbar> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
-        double currentSpacing = widget.lineSpacing;
+        double currentSpacing = _currentLineSpacing;
         return StatefulBuilder(
           builder: (context, setSheetState) {
             final String spacingDesc = currentSpacing <= 1.35
@@ -242,7 +261,7 @@ class _CustomToolbarState extends State<CustomToolbar> {
                           current: currentSpacing,
                           onTap: (val) {
                             setSheetState(() => currentSpacing = val);
-                            widget.onLineSpacingChanged?.call(val);
+                            _applyLineSpacing(val);
                           },
                         ),
                         const SizedBox(width: 8),
@@ -253,7 +272,7 @@ class _CustomToolbarState extends State<CustomToolbar> {
                           current: currentSpacing,
                           onTap: (val) {
                             setSheetState(() => currentSpacing = val);
-                            widget.onLineSpacingChanged?.call(val);
+                            _applyLineSpacing(val);
                           },
                         ),
                         const SizedBox(width: 8),
@@ -264,7 +283,7 @@ class _CustomToolbarState extends State<CustomToolbar> {
                           current: currentSpacing,
                           onTap: (val) {
                             setSheetState(() => currentSpacing = val);
-                            widget.onLineSpacingChanged?.call(val);
+                            _applyLineSpacing(val);
                           },
                         ),
                         const SizedBox(width: 8),
@@ -275,7 +294,7 @@ class _CustomToolbarState extends State<CustomToolbar> {
                           current: currentSpacing,
                           onTap: (val) {
                             setSheetState(() => currentSpacing = val);
-                            widget.onLineSpacingChanged?.call(val);
+                            _applyLineSpacing(val);
                           },
                         ),
                       ],
@@ -333,7 +352,7 @@ class _CustomToolbarState extends State<CustomToolbar> {
                               divisions: 36,
                               onChanged: (val) {
                                 setSheetState(() => currentSpacing = val);
-                                widget.onLineSpacingChanged?.call(val);
+                                _applyLineSpacing(val);
                               },
                             ),
                           ),
@@ -593,6 +612,45 @@ class _CustomToolbarState extends State<CustomToolbar> {
     );
   }
 
+  void _insertDivider(String embedData) {
+    final controller = widget.controller;
+    final index = controller.selection.baseOffset < 0 ? 0 : controller.selection.baseOffset;
+    final length = (controller.selection.extentOffset - index).clamp(0, controller.document.length);
+    final plainText = controller.document.toPlainText();
+
+    int insertPos = index;
+    if (insertPos > 0 && insertPos <= plainText.length && plainText[insertPos - 1] != '\n') {
+      controller.replaceText(insertPos, 0, '\n', TextSelection.collapsed(offset: insertPos + 1));
+      insertPos += 1;
+    }
+
+    controller.replaceText(
+      insertPos,
+      length,
+      BlockEmbed('divider', embedData),
+      TextSelection.collapsed(offset: insertPos + 1),
+    );
+
+    final updatedPlain = controller.document.toPlainText();
+    if (insertPos + 1 >= updatedPlain.length || updatedPlain[insertPos + 1] != '\n') {
+      controller.replaceText(insertPos + 1, 0, '\n', TextSelection.collapsed(offset: insertPos + 2));
+      controller.updateSelection(TextSelection.collapsed(offset: insertPos + 2), ChangeSource.local);
+    } else {
+      controller.updateSelection(TextSelection.collapsed(offset: insertPos + 2), ChangeSource.local);
+    }
+  }
+
+  void _showDividerSheet() {
+    setState(() {
+      _showFormatMenu = false;
+      _showListMenu = false;
+    });
+    DividerSheet.show(
+      context: context,
+      onInsert: _insertDivider,
+    );
+  }
+
   Widget _buildFormatFloatingBar() {
     return Container(
       margin: const EdgeInsets.fromLTRB(10, 8, 10, 4),
@@ -758,6 +816,84 @@ class _CustomToolbarState extends State<CustomToolbar> {
     );
   }
 
+  Widget _buildHistoryFloatingBar() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFCBD5E1),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildFormatOptionCard(
+              label: 'Batal (Undo)',
+              icon: Icons.undo_rounded,
+              isActive: false,
+              onTap: () => widget.controller.undo(),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: _buildFormatOptionCard(
+              label: 'Ulangi (Redo)',
+              icon: Icons.redo_rounded,
+              isActive: false,
+              onTap: () => widget.controller.redo(),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 1,
+            height: 30,
+            color: const Color(0xFFE2E8F0),
+          ),
+          const SizedBox(width: 6),
+          Tooltip(
+            message: 'Tutup Opsi',
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  _showHistoryMenu = false;
+                });
+              },
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 34,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFFE2E8F0),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.close_rounded,
+                  size: 18,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFormatOptionCard({
     required String label,
     required IconData icon,
@@ -836,6 +972,7 @@ class _CustomToolbarState extends State<CustomToolbar> {
           // Sub-bar format floating options
           if (_showFormatMenu) _buildFormatFloatingBar(),
           if (_showListMenu) _buildListFloatingBar(),
+          if (_showHistoryMenu) _buildHistoryFloatingBar(),
 
           // Main toolbar row
           SafeArea(
@@ -853,7 +990,10 @@ class _CustomToolbarState extends State<CustomToolbar> {
                       onTap: () {
                         setState(() {
                           _showFormatMenu = !_showFormatMenu;
-                          if (_showFormatMenu) _showListMenu = false;
+                          if (_showFormatMenu) {
+                            _showListMenu = false;
+                            _showHistoryMenu = false;
+                          }
                         });
                       },
                       borderRadius: BorderRadius.circular(10),
@@ -987,7 +1127,10 @@ class _CustomToolbarState extends State<CustomToolbar> {
                       onTap: () {
                         setState(() {
                           _showListMenu = !_showListMenu;
-                          if (_showListMenu) _showFormatMenu = false;
+                          if (_showListMenu) {
+                            _showFormatMenu = false;
+                            _showHistoryMenu = false;
+                          }
                         });
                       },
                       borderRadius: BorderRadius.circular(10),
@@ -1033,24 +1176,73 @@ class _CustomToolbarState extends State<CustomToolbar> {
                     ),
                   ),
 
-                  // 5. Undo & Redo Buttons
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildToolbarButton(
-                        icon: Icons.undo_rounded,
-                        isActive: false,
-                        tooltip: 'Batal Perubahan (Undo)',
-                        onTap: () => widget.controller.undo(),
+                  // 5. Garis Pembatas (Divider) Button
+                  _buildToolbarButton(
+                    icon: Icons.horizontal_rule_rounded,
+                    isActive: false,
+                    tooltip: 'Garis Pembatas (Divider)',
+                    onTap: () {
+                      setState(() {
+                        _showFormatMenu = false;
+                        _showListMenu = false;
+                        _showHistoryMenu = false;
+                      });
+                      _showDividerSheet();
+                    },
+                  ),
+
+                  // 6. Riwayat (Undo & Redo Gabungan)
+                  Tooltip(
+                    message: 'Riwayat (Batal / Ulangi)',
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _showHistoryMenu = !_showHistoryMenu;
+                          if (_showHistoryMenu) {
+                            _showFormatMenu = false;
+                            _showListMenu = false;
+                          }
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _showHistoryMenu
+                              ? const Color(0xFFEEF2FF)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _showHistoryMenu
+                                ? const Color(0xFFC7D2FE)
+                                : const Color(0xFFE2E8F0),
+                            width: _showHistoryMenu ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.history_rounded,
+                              size: 18,
+                              color: _showHistoryMenu
+                                  ? const Color(0xFF4F46E5)
+                                  : const Color(0xFF475569),
+                            ),
+                            const SizedBox(width: 2),
+                            Icon(
+                              _showHistoryMenu
+                                  ? Icons.keyboard_arrow_up_rounded
+                                  : Icons.keyboard_arrow_down_rounded,
+                              size: 15,
+                              color: _showHistoryMenu
+                                  ? const Color(0xFF4F46E5)
+                                  : const Color(0xFF94A3B8),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(width: 3),
-                      _buildToolbarButton(
-                        icon: Icons.redo_rounded,
-                        isActive: false,
-                        tooltip: 'Ulangi (Redo)',
-                        onTap: () => widget.controller.redo(),
-                      ),
-                    ],
+                    ),
                   ),
                 ],
               ),

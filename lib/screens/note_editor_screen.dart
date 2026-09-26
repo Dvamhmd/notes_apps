@@ -10,6 +10,7 @@ import '../services/smart_quill_controller.dart';
 import '../utils/folder_utils.dart';
 import '../widgets/custom_selection_controls.dart';
 import '../widgets/custom_toolbar.dart';
+import '../widgets/divider_embed_builder.dart';
 import '../widgets/line_spacing_sheet.dart';
 import '../widgets/move_note_dialog.dart';
 
@@ -145,19 +146,24 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
   }
 
   void _showLineSpacingDialog() {
+    final selStyle = _quillController.getSelectionStyle();
+    final lineAttr = selStyle.attributes[Attribute.lineHeight.key];
+    final double activeSpacing =
+        (lineAttr?.value != null ? double.tryParse(lineAttr!.value.toString()) : null) ?? _lineSpacing;
+
     LineSpacingSheet.show(
       context: context,
-      currentSpacing: _lineSpacing,
+      currentSpacing: activeSpacing,
       onSpacingChanged: (newSpacing) {
-        setState(() {
-          _lineSpacing = newSpacing;
-        });
+        _quillController.formatSelection(
+          Attribute.clone(Attribute.lineHeight, newSpacing),
+        );
         _scheduleAutoSave();
       },
       onReset: () {
-        setState(() {
-          _lineSpacing = 1.6;
-        });
+        _quillController.formatSelection(
+          Attribute.clone(Attribute.lineHeight, null),
+        );
         _scheduleAutoSave();
       },
     );
@@ -495,6 +501,9 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                             scrollable: true,
                             expands: true,
                             padding: const EdgeInsets.only(bottom: 80),
+                            embedBuilders: [
+                              DividerEmbedBuilder(),
+                            ],
                             customStyleBuilder: (Attribute attribute) {
                               if (attribute.key == Attribute.underline.key) {
                                 return const TextStyle(
@@ -503,22 +512,34 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                                   decorationStyle: TextDecorationStyle.solid,
                                 );
                               }
+                              if (attribute.key == Attribute.lineHeight.key) {
+                                final h = double.tryParse(attribute.value?.toString() ?? '');
+                                if (h != null) {
+                                  return TextStyle(height: h);
+                                }
+                              }
                               return const TextStyle();
                             },
                             // ignore: experimental_member_use
                             customLeadingBlockBuilder: (node, config) {
+                              final blockHeightAttr = node.style.attributes[Attribute.lineHeight.key];
+                              final customHeight = blockHeightAttr?.value != null
+                                  ? double.tryParse(blockHeightAttr!.value.toString())
+                                  : null;
+                              final effectiveHeight = customHeight ?? _lineSpacing;
+
                               final baseListStyle = TextStyle(
                                 fontFamily: 'Poppins',
                                 fontSize: 15,
                                 color: const Color(0xFF1E293B),
-                                height: _lineSpacing,
+                                height: effectiveHeight,
                               );
                               final effectiveStyle = (config.style ?? baseListStyle).copyWith(
                                 fontFamily: 'Poppins',
                                 fontSize: 15,
-                                height: _lineSpacing,
+                                height: effectiveHeight,
                               );
-                              final firstLineHeight = 15.0 * _lineSpacing;
+                              final firstLineHeight = 15.0 * effectiveHeight;
 
                               if (config.attribute == Attribute.ul) {
                                 return Container(

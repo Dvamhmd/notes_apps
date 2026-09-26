@@ -7,6 +7,7 @@ import 'package:notes_app/models/note_model.dart';
 import 'package:notes_app/screens/note_editor_screen.dart';
 import 'package:notes_app/services/rich_clipboard_service.dart';
 import 'package:notes_app/services/smart_quill_controller.dart';
+import 'package:notes_app/widgets/custom_toolbar.dart';
 import 'package:notes_app/widgets/note_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -326,6 +327,120 @@ void main() {
         (op) => op.data is String && (op.data as String).contains('Retyped Blue'));
     expect(blueOp.attributes?['italic'], isNull);
     expect(blueOp.attributes?['color'], '#0000FF');
+  });
+
+  testWidgets('Test NoteEditorScreen inserts and renders customizable horizontal divider line', (WidgetTester tester) async {
+    NoteModel? savedNote;
+    final note = NoteModel(
+      id: 'test-divider-note',
+      title: 'Catatan Garis',
+      contentJson: json.encode([
+        {'insert': 'Paragraf Pertama\n'}
+      ]),
+      plainText: 'Paragraf Pertama',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      lineSpacing: 1.6,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(fontFamily: 'Poppins'),
+        home: NoteEditorScreen(
+          note: note,
+          folders: const [],
+          onSave: (updated) {
+            savedNote = updated;
+          },
+          onDelete: (_) {},
+          onFolderCreated: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify Editor screen loaded
+    expect(find.text('Catatan Garis'), findsOneWidget);
+
+    // Find the divider button in CustomToolbar
+    final dividerIconFinder = find.byIcon(Icons.horizontal_rule_rounded);
+    expect(dividerIconFinder, findsOneWidget);
+
+    // Tap divider toolbar button
+    await tester.tap(dividerIconFinder);
+    await tester.pumpAndSettle();
+
+    // Verify DividerSheet is displayed
+    expect(find.text('Sisipkan Garis Pembatas'), findsWidgets);
+    expect(find.text('Pilihan Warna'), findsOneWidget);
+    expect(find.text('Ketebalan Garis'), findsOneWidget);
+    expect(find.text('Gaya Garis'), findsOneWidget);
+
+    // Select color 'Merah' or 'Teal'
+    final tealFinder = find.byTooltip('Teal');
+    if (tealFinder.evaluate().isNotEmpty) {
+      await tester.tap(tealFinder);
+      await tester.pumpAndSettle();
+    }
+
+    // Tap insert button
+    final insertBtn = find.widgetWithText(ElevatedButton, 'Sisipkan Garis Pembatas');
+    await tester.scrollUntilVisible(
+      insertBtn,
+      50,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(insertBtn);
+    await tester.pumpAndSettle();
+
+    // Pop editor screen to trigger immediate save
+    final backBtn = find.byIcon(Icons.arrow_back_ios_new_rounded);
+    await tester.tap(backBtn);
+    await tester.pumpAndSettle();
+
+    // Verify saved note contains the divider embed
+    expect(savedNote, isNotNull);
+    expect(savedNote!.contentJson, contains('divider'));
+  });
+
+  testWidgets('Test combined Undo/Redo button in CustomToolbar opens history floating options', (WidgetTester tester) async {
+    final doc = Document()..insert(0, 'Initial Text\n');
+    final controller = QuillController(
+      document: doc,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          bottomNavigationBar: CustomToolbar(
+            controller: controller,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify combined History button exists
+    final historyBtn = find.byIcon(Icons.history_rounded);
+    expect(historyBtn, findsOneWidget);
+
+    // Tap History button
+    await tester.tap(historyBtn);
+    await tester.pumpAndSettle();
+
+    // Verify floating bar with Undo and Redo options appeared
+    expect(find.text('Batal (Undo)'), findsOneWidget);
+    expect(find.text('Ulangi (Redo)'), findsOneWidget);
+
+    // Tap close button in floating bar
+    final closeBtn = find.byIcon(Icons.close_rounded);
+    expect(closeBtn, findsOneWidget);
+    await tester.tap(closeBtn);
+    await tester.pumpAndSettle();
+
+    // Floating bar is closed
+    expect(find.text('Batal (Undo)'), findsNothing);
   });
 }
 
