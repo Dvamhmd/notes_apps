@@ -37,7 +37,6 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
   late List<FolderModel> _folders;
   late Map<String, FolderModel> _folderMap;
 
-  String? _selectedFolderFilter; // null = semua, '__ROOT__' = tanpa folder, folderId = spesifik folder
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   SortOption _sortOption = SortOption.lastAccessed;
@@ -47,7 +46,6 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
     super.initState();
     _allNotes = List.from(widget.notes);
     _folders = List.from(widget.folders);
-    _selectedFolderFilter = widget.initialFolderId;
     _buildFolderMap();
     _loadInitialSettings();
   }
@@ -58,15 +56,12 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
     super.dispose();
   }
 
-  String? get _currentFilterFolderId =>
-      _selectedFolderFilter == '__ROOT__' ? null : _selectedFolderFilter;
-
   void _buildFolderMap() {
     _folderMap = {for (final f in _folders) f.id: f};
   }
 
   Future<void> _loadInitialSettings() async {
-    final sort = await _storageService.getSortOption(folderId: _currentFilterFolderId);
+    final sort = await _storageService.getSortOption();
     if (mounted) {
       setState(() {
         _sortOption = sort;
@@ -77,24 +72,13 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
   Future<void> _loadData() async {
     final notes = await _storageService.getNotes();
     final folders = await _storageService.getFolders();
-    final sort = await _storageService.getSortOption(folderId: _currentFilterFolderId);
+    final sort = await _storageService.getSortOption();
     if (mounted) {
       setState(() {
         _allNotes = notes;
         _folders = folders;
         _sortOption = sort;
         _buildFolderMap();
-      });
-    }
-  }
-
-  void _selectFolderFilter(String? folderFilter) async {
-    final folderId = folderFilter == '__ROOT__' ? null : folderFilter;
-    final sort = await _storageService.getSortOption(folderId: folderId);
-    if (mounted) {
-      setState(() {
-        _selectedFolderFilter = folderFilter;
-        _sortOption = sort;
       });
     }
   }
@@ -107,16 +91,7 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
   List<NoteModel> get _filteredAndSortedNotes {
     var result = List<NoteModel>.from(_allNotes);
 
-    // 1. Filter by selected folder tab
-    if (_selectedFolderFilter != null) {
-      if (_selectedFolderFilter == '__ROOT__') {
-        result = result.where((n) => n.folderId == null).toList();
-      } else {
-        result = result.where((n) => n.folderId == _selectedFolderFilter).toList();
-      }
-    }
-
-    // 2. Filter by search query
+    // Filter by search query
     if (_searchQuery.trim().isNotEmpty) {
       final q = _searchQuery.toLowerCase().trim();
       result = result.where((n) {
@@ -263,16 +238,11 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
   }
 
   Future<void> _createNewNote() async {
-    String? folderIdToUse;
-    if (_selectedFolderFilter != null && _selectedFolderFilter != '__ROOT__') {
-      folderIdToUse = _selectedFolderFilter;
-    }
-
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => CreateNoteDialog(
         folders: _folders,
-        initialFolderId: folderIdToUse,
+        initialFolderId: widget.initialFolderId,
       ),
     );
 
@@ -308,7 +278,7 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
         setState(() {
           _sortOption = newOption;
         });
-        await _storageService.saveSortOption(newOption, folderId: _currentFilterFolderId);
+        await _storageService.saveSortOption(newOption);
         _showToast(
           'Urutan diubah: ${newOption.label}',
           icon: newOption.icon,
@@ -865,46 +835,9 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
                 ),
               ),
 
-              // Folder Filter Chips
-              Container(
-                height: 38,
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  children: [
-                    _buildFilterChip(
-                      label: 'Semua (${_allNotes.length})',
-                      isSelected: _selectedFolderFilter == null,
-                      onTap: () => _selectFolderFilter(null),
-                    ),
-                    const SizedBox(width: 8),
-                    _buildFilterChip(
-                      label: 'Tanpa Folder (${_allNotes.where((n) => n.folderId == null).length})',
-                      isSelected: _selectedFolderFilter == '__ROOT__',
-                      icon: Icons.inbox_rounded,
-                      onTap: () => _selectFolderFilter('__ROOT__'),
-                    ),
-                    ..._folders.map((folder) {
-                      final count = _allNotes.where((n) => n.folderId == folder.id).length;
-                      return Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: _buildFilterChip(
-                          label: '${folder.name} ($count)',
-                          isSelected: _selectedFolderFilter == folder.id,
-                          color: Color(folder.colorValue),
-                          icon: Icons.folder_rounded,
-                          onTap: () => _selectFolderFilter(folder.id),
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ),
-
-              // Reorder info badge if manual or sorting header
+              // Reorder info badge / sorting header
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -952,38 +885,6 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
-
-              if (isManualSort && _searchQuery.isEmpty)
-                Container(
-                  margin: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEEF2FF),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE0E7FF)),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline_rounded,
-                        size: 16,
-                        color: Color(0xFF4F46E5),
-                      ),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Tahan & geser ( ⠿ ) pada kartu catatan untuk menyusun urutan bebas.',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: Color(0xFF4338CA),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
 
               // Notes List View
               Expanded(
@@ -996,8 +897,8 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
                             children: [
                               Container(
                                 padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF1F5F9),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFF1F5F9),
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(
@@ -1010,7 +911,7 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
                               Text(
                                 _searchQuery.isNotEmpty
                                     ? 'Tidak ada catatan yang sesuai pencarian'
-                                    : 'Belum ada catatan di kategori ini',
+                                    : 'Belum ada catatan',
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                   fontSize: 14.5,
@@ -1035,7 +936,7 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
                       )
                     : isManualSort && _searchQuery.isEmpty
                         ? ReorderableListView.builder(
-                            padding: const EdgeInsets.fromLTRB(20, 4, 20, 80),
+                            padding: const EdgeInsets.fromLTRB(20, 2, 20, 80),
                             buildDefaultDragHandles: false,
                             itemCount: notes.length,
                             onReorder: (oldIdx, newIdx) =>
@@ -1043,36 +944,52 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
                             itemBuilder: (ctx, index) {
                               final note = notes[index];
                               final folder = _getFolderById(note.folderId);
-                              return Container(
+                              return NoteCard(
                                 key: ValueKey(note.id),
-                                margin: const EdgeInsets.only(bottom: 10),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    ReorderableDragStartListener(
-                                      index: index,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                          vertical: 16,
-                                        ),
-                                        child: const Icon(
-                                          Icons.drag_indicator_rounded,
-                                          color: Color(0xFF94A3B8),
-                                          size: 20,
+                                note: note,
+                                folder: folder,
+                                margin: const EdgeInsets.only(bottom: 6),
+                                trailing: ReorderableDragStartListener(
+                                  index: index,
+                                  child: MouseRegion(
+                                    cursor: SystemMouseCursors.grab,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEEF2FF),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: const Color(0xFFC7D2FE),
+                                          width: 1,
                                         ),
                                       ),
-                                    ),
-                                    Expanded(
-                                      child: NoteCard(
-                                        note: note,
-                                        folder: folder,
-                                        onTap: () => _openNoteEditor(note),
-                                        onLongPress: () => _showNoteActionMenu(note),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.drag_indicator_rounded,
+                                            size: 16,
+                                            color: Color(0xFF4F46E5),
+                                          ),
+                                          SizedBox(width: 3),
+                                          Text(
+                                            'Urutkan',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF4F46E5),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ),
+                                onTap: () => _openNoteEditor(note),
+                                onLongPress: () => _showNoteActionMenu(note),
                               );
                             },
                           )
@@ -1085,6 +1002,7 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
                               return NoteCard(
                                 note: note,
                                 folder: folder,
+                                margin: const EdgeInsets.only(bottom: 10),
                                 onTap: () => _openNoteEditor(note),
                                 onLongPress: () => _showNoteActionMenu(note),
                               );
@@ -1108,60 +1026,6 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
             fontSize: 14,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.1,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterChip({
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-    IconData? icon,
-    Color? color,
-  }) {
-    final chipColor = color ?? const Color(0xFF4F46E5);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? chipColor.withValues(alpha: 0.12)
-                : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected
-                  ? chipColor
-                  : const Color(0xFFE2E8F0),
-              width: isSelected ? 1.5 : 1.0,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(
-                  icon,
-                  size: 14,
-                  color: isSelected ? chipColor : const Color(0xFF64748B),
-                ),
-                const SizedBox(width: 5),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: isSelected ? chipColor : const Color(0xFF475569),
-                ),
-              ),
-            ],
           ),
         ),
       ),

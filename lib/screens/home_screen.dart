@@ -19,6 +19,7 @@ import '../widgets/sort_bottom_sheet.dart';
 import 'folder_manage_screen.dart';
 import 'note_manage_screen.dart';
 import 'note_editor_screen.dart';
+import 'iq_intro_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String? initialFolderId;
@@ -2009,6 +2010,14 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _openIqTest() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const IqIntroScreen(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentFolder = _getFolderById(_currentFolderId);
@@ -2205,6 +2214,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         _onAddNotePressed();
                       } else if (val == 'sort_items') {
                         _showSortBottomSheet();
+                      } else if (val == 'iq_test') {
+                        _openIqTest();
                       }
                     },
                     itemBuilder: (ctx) => [
@@ -2352,6 +2363,37 @@ class _HomeScreenState extends State<HomeScreen> {
                             const Expanded(
                               child: Text(
                                 'Kelola Catatan',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF1E293B),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      PopupMenuItem(
+                        value: 'iq_test',
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF5F3FF),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.psychology_rounded,
+                                size: 18,
+                                color: Color(0xFF7C3AED),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'Tes IQ',
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,

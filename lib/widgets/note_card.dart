@@ -15,6 +15,8 @@ class NoteCard extends StatelessWidget {
   final VoidCallback? onLongPress;
   final bool isSelectionMode;
   final bool isSelected;
+  final Widget? trailing;
+  final EdgeInsetsGeometry? margin;
 
   const NoteCard({
     super.key,
@@ -25,6 +27,8 @@ class NoteCard extends StatelessWidget {
     this.onLongPress,
     this.isSelectionMode = false,
     this.isSelected = false,
+    this.trailing,
+    this.margin,
   });
 
   String _formatDate(DateTime date) {
@@ -60,7 +64,7 @@ class NoteCard extends StatelessWidget {
         : Colors.white;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: margin ?? const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: cardBgColor,
         borderRadius: BorderRadius.circular(18),
@@ -89,7 +93,7 @@ class NoteCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header row: Checkbox (in selection mode) / Title & pin badge
+                // Header row: Checkbox (in selection mode) / Title & pin badge & trailing
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -176,6 +180,10 @@ class NoteCard extends StatelessWidget {
                           color: Color(0xFF4F46E5),
                         ),
                       ),
+                    ],
+                    if (trailing != null) ...[
+                      const SizedBox(width: 8),
+                      trailing!,
                     ],
                   ],
                 ),
