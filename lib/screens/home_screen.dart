@@ -2364,7 +2364,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   constraints: const BoxConstraints(maxWidth: 900),
                   child: Column(
                     children: [
-                      // Search Bar with Filter and Sort Buttons
+                      // Search Bar with Filter Button
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
                         child: Container(
@@ -2372,14 +2372,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: (!_searchFilterConfig.isDefault || _sortOption.isActive)
+                              color: !_searchFilterConfig.isDefault
                                   ? const Color(0xFF4F46E5).withValues(alpha: 0.6)
                                   : const Color(0xFFE2E8F0),
-                              width: (!_searchFilterConfig.isDefault || _sortOption.isActive) ? 1.5 : 1.0,
+                              width: !_searchFilterConfig.isDefault ? 1.5 : 1.0,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: (!_searchFilterConfig.isDefault || _sortOption.isActive)
+                                color: !_searchFilterConfig.isDefault
                                     ? const Color(0xFF4F46E5).withValues(alpha: 0.08)
                                     : const Color(0xFF0F172A).withValues(alpha: 0.02),
                                 blurRadius: 8,
@@ -2439,36 +2439,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                   ),
                                 ),
-                              ),
-                              // Sort Button with Active Badge/Style (Blue dot only when sorting is active)
-                              IconButton(
-                                tooltip: 'Urutkan: ${_sortOption.label}',
-                                icon: Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    Icon(
-                                      Icons.swap_vert_rounded,
-                                      size: 21,
-                                      color: _sortOption.isActive
-                                          ? const Color(0xFF4F46E5)
-                                          : const Color(0xFF64748B),
-                                    ),
-                                    if (_sortOption.isActive)
-                                      Positioned(
-                                        top: -2,
-                                        right: -2,
-                                        child: Container(
-                                          width: 8,
-                                          height: 8,
-                                          decoration: const BoxDecoration(
-                                            color: Color(0xFF4F46E5),
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                onPressed: _showSortBottomSheet,
                               ),
                               // Filter Button with Blue Dot Badge (Shown when filter is applied)
                               IconButton(
