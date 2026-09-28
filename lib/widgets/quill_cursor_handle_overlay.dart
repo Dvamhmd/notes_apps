@@ -11,7 +11,7 @@ import 'custom_selection_controls.dart';
 /// Features:
 /// - Exact teardrop pin geometry attached directly beneath the blinking cursor line.
 /// - Fluid real-time drag positioning across characters, lines, and paragraphs.
-/// - Smooth fade animation after 4 seconds of idle time.
+/// - Smooth fade animation after 1.5 seconds of idle time.
 /// - Auto-scrolling when dragging near top/bottom viewport boundaries.
 /// - Enhanced touch target (48x48 dp) for effortless grabbing on any Android screen.
 class QuillCursorHandleOverlay extends StatefulWidget {
@@ -45,6 +45,10 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
   Offset _dragStartTouchOffset = Offset.zero;
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
+
+  double? _activeLineTop;
+  double? _activeLineBottom;
+  double? _activeLineCenterY;
 
   @override
   void initState() {
@@ -109,7 +113,9 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
     if (!mounted) return;
     final selection = widget.controller.selection;
     if (widget.focusNode.hasFocus && selection.isCollapsed && selection.baseOffset >= 0) {
-      _showHandle();
+      if (!_isDragging) {
+        _showHandle();
+      }
     } else if (!selection.isCollapsed) {
       // Range selection active - hide collapsed handle
       _hideHandleImmediate();
@@ -153,7 +159,7 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
   void _restartFadeTimer() {
     _fadeTimer?.cancel();
     if (_isDragging) return;
-    _fadeTimer = Timer(const Duration(milliseconds: 3800), () {
+    _fadeTimer = Timer(const Duration(milliseconds: 1500), () {
       if (mounted && !_isDragging) {
         _isVisible = false;
         _fadeController.reverse().then((_) {
@@ -183,16 +189,82 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
       setState(() {
         _caretBottomPosition = caretGlobal;
         _caretHeight = caretRect.height > 0 ? caretRect.height : 20.0;
+        _activeLineTop = caretRect.top;
+        _activeLineBottom = caretRect.bottom;
+        _activeLineCenterY = caretRect.top + (caretRect.height / 2);
       });
     } catch (_) {
       // Handle transient layout phases safely
     }
   }
 
+  TextPosition _getPositionForOffset(dynamic renderEditor, Offset localInEditor) {
+    try {
+      dynamic current = renderEditor.firstChild;
+      dynamic closestChild;
+      double closestDistance = double.infinity;
+
+      while (current != null) {
+        final childOffset = (current.parentData as dynamic).offset as Offset;
+        final childSize = current.size as Size;
+        final childRect = childOffset & childSize;
+
+        if (localInEditor.dy >= childRect.top && localInEditor.dy <= childRect.bottom) {
+          closestChild = current;
+          break;
+        }
+
+        final dist = (localInEditor.dy < childRect.top)
+            ? (childRect.top - localInEditor.dy)
+            : (localInEditor.dy - childRect.bottom);
+        if (dist < closestDistance) {
+          closestDistance = dist;
+          closestChild = current;
+        }
+
+        current = renderEditor.childAfter(current);
+      }
+
+      if (closestChild != null) {
+        final childOffset = (closestChild.parentData as dynamic).offset as Offset;
+        final childLocal = localInEditor - childOffset;
+        final TextPosition childPos = closestChild.getPositionForOffset(childLocal);
+        final int lineStart = (closestChild.line?.documentOffset ?? closestChild.line?.offset ?? 0) as int;
+        return TextPosition(offset: lineStart + childPos.offset, affinity: childPos.affinity);
+      }
+    } catch (_) {}
+
+    return renderEditor.getPositionForOffset(localInEditor);
+  }
+
   void _onPanStart(DragStartDetails details) {
+    if (!widget.focusNode.hasFocus) {
+      widget.focusNode.requestFocus();
+    }
     _isDragging = true;
     _fadeTimer?.cancel();
     _fadeController.value = 1.0;
+
+    final rawEditorState =
+        widget.editorKey.currentState?.editableTextKey.currentState;
+    if (rawEditorState != null) {
+      final renderEditor = rawEditorState.renderEditor;
+      final selection = widget.controller.selection;
+      if (selection.isCollapsed && selection.baseOffset >= 0) {
+        try {
+          final caretRect = renderEditor.getLocalRectForCaret(selection.extent);
+          final caretGlobal = renderEditor.localToGlobal(
+            Offset(caretRect.left + (caretRect.width / 2), caretRect.bottom),
+          );
+          _caretBottomPosition = caretGlobal;
+          _caretHeight = caretRect.height > 0 ? caretRect.height : 20.0;
+          _activeLineTop = caretRect.top;
+          _activeLineBottom = caretRect.bottom;
+          _activeLineCenterY = caretRect.top + (caretRect.height / 2);
+        } catch (_) {}
+      }
+    }
+
     if (_caretBottomPosition != null) {
       _dragStartTouchOffset = details.globalPosition - _caretBottomPosition!;
     } else {
@@ -207,23 +279,36 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
     if (rawEditorState == null) return;
 
     final renderEditor = rawEditorState.renderEditor;
+    final selection = widget.controller.selection;
+    if (!selection.isCollapsed || selection.baseOffset < 0) return;
 
-    // Track the target caret point smoothly based on initial grab offset
+    // Track target caret point smoothly based on initial grab offset
     final targetCaretGlobal = details.globalPosition - _dragStartTouchOffset;
     // Aim for the vertical center of the text line
     final targetPointInGlobal = targetCaretGlobal.translate(0, -(_caretHeight * 0.5));
-
     final targetInEditor = renderEditor.globalToLocal(targetPointInGlobal);
 
-    // Safeguard clamping so coordinates never drop below 0 (preventing jump to top offset 0)
     final double maxW = math.max(0.0, renderEditor.size.width);
     final double maxH = math.max(0.0, renderEditor.size.height - 1.0);
+
+    // Apply vertical hysteresis / line-locking to eliminate erratic jumping between lines
+    double effectiveTargetY = targetInEditor.dy;
+    if (_activeLineCenterY != null && _activeLineTop != null && _activeLineBottom != null) {
+      final lineH = math.max(16.0, _activeLineBottom! - _activeLineTop!);
+      final threshold = lineH * 0.75;
+      final distFromCenter = targetInEditor.dy - _activeLineCenterY!;
+      if (distFromCenter.abs() < threshold) {
+        // Locked stably to current line's vertical center for ultra-sensitive, jitter-free horizontal scrubbing
+        effectiveTargetY = _activeLineCenterY!;
+      }
+    }
+
     final safeTarget = Offset(
       targetInEditor.dx.clamp(0.0, maxW),
-      targetInEditor.dy.clamp(0.0, maxH),
+      effectiveTargetY.clamp(0.0, maxH),
     );
 
-    final resolvedPosition = renderEditor.getPositionForOffset(safeTarget);
+    final resolvedPosition = _getPositionForOffset(renderEditor, safeTarget);
     final currentOffset = widget.controller.selection.baseOffset;
 
     if (resolvedPosition.offset != currentOffset) {
@@ -234,28 +319,43 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
       );
     }
 
-    // Auto-scroll vertically if dragged near top/bottom viewport edge
+    // Immediately re-sync line metrics & exact caret position with high fidelity
+    try {
+      final currentSelection = widget.controller.selection;
+      final newCaretRect = renderEditor.getLocalRectForCaret(currentSelection.extent);
+      _activeLineTop = newCaretRect.top;
+      _activeLineBottom = newCaretRect.bottom;
+      _activeLineCenterY = newCaretRect.top + (newCaretRect.height / 2);
+      _caretHeight = newCaretRect.height > 0 ? newCaretRect.height : 20.0;
+      final caretGlobal = renderEditor.localToGlobal(
+        Offset(newCaretRect.left + (newCaretRect.width / 2), newCaretRect.bottom),
+      );
+      setState(() {
+        _caretBottomPosition = caretGlobal;
+      });
+    } catch (_) {}
+
+    // Auto-scroll vertically if dragged near top/bottom viewport edge and content is scrollable
     final scrollCtrl = widget.scrollController;
-    if (scrollCtrl != null && scrollCtrl.hasClients) {
+    if (scrollCtrl != null && scrollCtrl.hasClients && scrollCtrl.position.maxScrollExtent > 0) {
       final editorBox = widget.editorKey.currentContext?.findRenderObject() as RenderBox?;
       if (editorBox != null && editorBox.hasSize) {
         final localTouchInViewport = editorBox.globalToLocal(details.globalPosition);
-        const edgeThreshold = 48.0;
+        const edgeThreshold = 36.0;
         final viewportHeight = editorBox.size.height;
 
-        if (localTouchInViewport.dy < edgeThreshold) {
-          final speed = math.max(2.0, (edgeThreshold - localTouchInViewport.dy) / 2);
+        if (localTouchInViewport.dy < edgeThreshold && scrollCtrl.offset > 0) {
+          final speed = math.min(10.0, math.max(1.0, (edgeThreshold - localTouchInViewport.dy) / 3));
           scrollCtrl.jumpTo(math.max(0.0, scrollCtrl.offset - speed));
-        } else if (localTouchInViewport.dy > viewportHeight - edgeThreshold) {
-          final speed = math.max(2.0, (localTouchInViewport.dy - (viewportHeight - edgeThreshold)) / 2);
+        } else if (localTouchInViewport.dy > viewportHeight - edgeThreshold &&
+            scrollCtrl.offset < scrollCtrl.position.maxScrollExtent) {
+          final speed = math.min(10.0, math.max(1.0, (localTouchInViewport.dy - (viewportHeight - edgeThreshold)) / 3));
           scrollCtrl.jumpTo(
             math.min(scrollCtrl.position.maxScrollExtent, scrollCtrl.offset + speed),
           );
         }
       }
     }
-
-    _updateCaretPosition();
   }
 
   void _onPanEnd(DragEndDetails details) {
