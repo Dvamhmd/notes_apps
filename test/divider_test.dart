@@ -115,7 +115,7 @@ void main() {
     expect(decoded['style'], isNotNull);
   });
 
-  testWidgets('Test selective line-height on specific paragraph', (WidgetTester tester) async {
+  testWidgets('Test selective line-height on specific paragraph and multiple paragraph independence', (WidgetTester tester) async {
     final doc = Document()
       ..insert(0, 'Paragraph One\nParagraph Two\nParagraph Three\n');
 
@@ -124,14 +124,56 @@ void main() {
       selection: const TextSelection(baseOffset: 15, extentOffset: 25), // In Paragraph Two
     );
 
+    // Format Paragraph Two to 2.4x line spacing
     controller.formatSelection(Attribute.clone(Attribute.lineHeight, 2.4));
 
-    final delta = controller.document.toDelta();
-    final ops = delta.toList();
+    var delta = controller.document.toDelta();
+    var ops = delta.toList();
 
     // Line 1 should not have line-height
     expect(ops.first.attributes?['line-height'], isNull);
     // Line 2 newline should have line-height 2.4
     expect(ops.any((op) => op.attributes != null && op.attributes!['line-height'] == 2.4), isTrue);
+    // Line 3 newline should not have line-height
+    expect(ops.last.attributes?['line-height'], isNull);
+
+    // Now move cursor to Paragraph Three (collapsed selection) and format to 1.25x
+    controller.updateSelection(const TextSelection.collapsed(offset: 35), ChangeSource.local);
+    controller.formatSelection(Attribute.clone(Attribute.lineHeight, 1.25));
+
+    delta = controller.document.toDelta();
+    ops = delta.toList();
+
+    // Line 1 remains unstyled
+    expect(ops.first.attributes?['line-height'], isNull);
+    // Line 2 remains 2.4
+    expect(ops.any((op) => op.attributes != null && op.attributes!['line-height'] == 2.4), isTrue);
+    // Line 3 has 1.25
+    expect(ops.any((op) => op.attributes != null && op.attributes!['line-height'] == 1.25), isTrue);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: QuillEditor.basic(
+            controller: controller,
+            config: QuillEditorConfig(
+              customStyleBuilder: (Attribute attribute) {
+                if (attribute.key == Attribute.lineHeight.key) {
+                  final h = double.tryParse(attribute.value?.toString() ?? '');
+                  if (h != null) {
+                    return TextStyle(height: h);
+                  }
+                }
+                return const TextStyle();
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final richTexts = tester.widgetList<RichText>(find.byType(RichText)).toList();
+    expect(richTexts.length, greaterThanOrEqualTo(3));
   });
 }

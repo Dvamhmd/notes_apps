@@ -297,7 +297,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await _storageService.initializeDefaultsIfNeeded();
     final notes = await _storageService.getNotes();
     final folders = await _storageService.getFolders();
-    final savedSort = await _storageService.getSortOption();
+    final savedSort = await _storageService.getSortOption(folderId: _currentFolderId);
     if (mounted) {
       setState(() {
         _allNotes = notes;
@@ -373,9 +373,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ? 0
         : FolderUtils.getFolderPath(folderId, _folders).length;
 
+    final folderSort = await _storageService.getSortOption(folderId: folderId);
+    if (!mounted) return;
+
     setState(() {
       _isNavigatingForward = newDepth >= oldDepth;
       _currentFolderId = folderId;
+      _sortOption = folderSort;
       _searchQuery = '';
       _searchController.clear();
       _recalculateDerivedData();
@@ -451,7 +455,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _sortOption = newOption;
           _recalculateDerivedData();
         });
-        await _storageService.saveSortOption(newOption);
+        await _storageService.saveSortOption(newOption, folderId: _currentFolderId);
       },
     );
   }
@@ -2221,12 +2225,14 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             const SizedBox(width: 12),
-                            const Text(
-                              'Urutkan File & Folder',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF1E293B),
+                            const Expanded(
+                              child: Text(
+                                'Urutkan File & Folder',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF1E293B),
+                                ),
                               ),
                             ),
                           ],
@@ -2250,14 +2256,16 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             const SizedBox(width: 12),
-                            Text(
-                              _currentFolderId != null
-                                  ? 'Buat Subfolder'
-                                  : 'Buat Folder Baru',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF1E293B),
+                            Expanded(
+                              child: Text(
+                                _currentFolderId != null
+                                    ? 'Buat Subfolder'
+                                    : 'Buat Folder Baru',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF1E293B),
+                                ),
                               ),
                             ),
                           ],
@@ -2280,12 +2288,14 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             const SizedBox(width: 12),
-                            const Text(
-                              'Kelola Folder',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF1E293B),
+                            const Expanded(
+                              child: Text(
+                                'Kelola Folder',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF1E293B),
+                                ),
                               ),
                             ),
                           ],
@@ -2309,12 +2319,14 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             const SizedBox(width: 12),
-                            const Text(
-                              'Catatan Baru',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF1E293B),
+                            const Expanded(
+                              child: Text(
+                                'Catatan Baru',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF1E293B),
+                                ),
                               ),
                             ),
                           ],
@@ -2337,12 +2349,14 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             const SizedBox(width: 12),
-                            const Text(
-                              'Kelola Catatan',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF1E293B),
+                            const Expanded(
+                              child: Text(
+                                'Kelola Catatan',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF1E293B),
+                                ),
                               ),
                             ),
                           ],

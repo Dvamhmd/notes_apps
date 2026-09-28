@@ -157,7 +157,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
     final selStyle = _quillController.getSelectionStyle();
     final lineAttr = selStyle.attributes[Attribute.lineHeight.key];
     final double activeSpacing =
-        (lineAttr?.value != null ? double.tryParse(lineAttr!.value.toString()) : null) ?? _lineSpacing;
+        (lineAttr?.value != null ? double.tryParse(lineAttr!.value.toString()) : null) ?? 1.6;
 
     LineSpacingSheet.show(
       context: context,
@@ -542,7 +542,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                               final customHeight = blockHeightAttr?.value != null
                                   ? double.tryParse(blockHeightAttr!.value.toString())
                                   : null;
-                              final effectiveHeight = customHeight ?? _lineSpacing;
+                              final effectiveHeight = customHeight ?? 1.6;
 
                               final baseListStyle = TextStyle(
                                 fontFamily: 'Poppins',
@@ -596,17 +596,17 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
 
                               return null;
                             },
-                            customStyles: DefaultStyles(
+                            customStyles: const DefaultStyles(
                               paragraph: DefaultTextBlockStyle(
                                 TextStyle(
                                   fontFamily: 'Poppins',
                                   fontSize: 15,
-                                  color: const Color(0xFF1E293B),
-                                  height: _lineSpacing,
+                                  color: Color(0xFF1E293B),
+                                  height: 1.6,
                                 ),
-                                const HorizontalSpacing(0, 0),
-                                VerticalSpacing(0, (_lineSpacing - 1.0).clamp(0.0, 10.0) * 3),
-                                const VerticalSpacing(0, 0),
+                                HorizontalSpacing(0, 0),
+                                VerticalSpacing(0, 1.8),
+                                VerticalSpacing(0, 0),
                                 null,
                               ),
                               h1: DefaultTextBlockStyle(
@@ -614,12 +614,12 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                                   fontFamily: 'Poppins',
                                   fontSize: 24,
                                   fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF0F172A),
-                                  height: (_lineSpacing * 0.85).clamp(1.1, 2.5),
+                                  color: Color(0xFF0F172A),
+                                  height: 1.35,
                                 ),
-                                const HorizontalSpacing(0, 0),
-                                const VerticalSpacing(16, 8),
-                                const VerticalSpacing(0, 0),
+                                HorizontalSpacing(0, 0),
+                                VerticalSpacing(16, 8),
+                                VerticalSpacing(0, 0),
                                 null,
                               ),
                               h2: DefaultTextBlockStyle(
@@ -627,12 +627,12 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                                   fontFamily: 'Poppins',
                                   fontSize: 20,
                                   fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF1E293B),
-                                  height: (_lineSpacing * 0.9).clamp(1.1, 2.5),
+                                  color: Color(0xFF1E293B),
+                                  height: 1.45,
                                 ),
-                                const HorizontalSpacing(0, 0),
-                                const VerticalSpacing(12, 6),
-                                const VerticalSpacing(0, 0),
+                                HorizontalSpacing(0, 0),
+                                VerticalSpacing(12, 6),
+                                VerticalSpacing(0, 0),
                                 null,
                               ),
                               h3: DefaultTextBlockStyle(
@@ -640,24 +640,24 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                                   fontFamily: 'Poppins',
                                   fontSize: 17,
                                   fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF334155),
-                                  height: (_lineSpacing * 0.95).clamp(1.1, 2.5),
+                                  color: Color(0xFF334155),
+                                  height: 1.5,
                                 ),
-                                const HorizontalSpacing(0, 0),
-                                const VerticalSpacing(8, 4),
-                                const VerticalSpacing(0, 0),
+                                HorizontalSpacing(0, 0),
+                                VerticalSpacing(8, 4),
+                                VerticalSpacing(0, 0),
                                 null,
                               ),
                               lists: DefaultListBlockStyle(
                                 TextStyle(
                                   fontFamily: 'Poppins',
                                   fontSize: 15,
-                                  color: const Color(0xFF1E293B),
-                                  height: _lineSpacing,
+                                  color: Color(0xFF1E293B),
+                                  height: 1.6,
                                 ),
-                                const HorizontalSpacing(0, 0),
-                                VerticalSpacing(2, (_lineSpacing - 1.0).clamp(0.0, 6.0) * 2),
-                                const VerticalSpacing(0, 0),
+                                HorizontalSpacing(0, 0),
+                                VerticalSpacing(2, 1.2),
+                                VerticalSpacing(0, 0),
                                 null,
                                 null,
                               ),
@@ -665,12 +665,12 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                                 TextStyle(
                                   fontFamily: 'Poppins',
                                   fontSize: 15,
-                                  color: const Color(0xFF1E293B),
-                                  height: _lineSpacing,
+                                  color: Color(0xFF1E293B),
+                                  height: 1.6,
                                 ),
-                                const HorizontalSpacing(0, 0),
-                                const VerticalSpacing(0, 0),
-                                const VerticalSpacing(0, 0),
+                                HorizontalSpacing(0, 0),
+                                VerticalSpacing(0, 0),
+                                VerticalSpacing(0, 0),
                                 null,
                               ),
                             ),
@@ -684,11 +684,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                 // Custom Toolbar for Rich Text Styling & Line Spacing
                 CustomToolbar(
                   controller: _quillController,
-                  lineSpacing: _lineSpacing,
+                  lineSpacing: 1.6,
                   onLineSpacingChanged: (val) {
-                    setState(() {
-                      _lineSpacing = val;
-                    });
                     _scheduleAutoSave();
                   },
                   onOpenLineSpacing: _showLineSpacingDialog,

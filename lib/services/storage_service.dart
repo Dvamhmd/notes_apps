@@ -245,15 +245,20 @@ class StorageService {
   }
 
   // --- Sorting & Access Tracking ---
-  Future<SortOption> getSortOption() async {
+  Future<SortOption> getSortOption({String? folderId}) async {
     final prefs = await SharedPreferences.getInstance();
-    final sortId = prefs.getString(_sortOptionKey);
+    final key = folderId != null ? '${_sortOptionKey}_$folderId' : '${_sortOptionKey}_root';
+    final sortId = prefs.getString(key) ?? prefs.getString(_sortOptionKey);
     return SortOption.fromId(sortId);
   }
 
-  Future<void> saveSortOption(SortOption option) async {
+  Future<void> saveSortOption(SortOption option, {String? folderId}) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_sortOptionKey, option.id);
+    final key = folderId != null ? '${_sortOptionKey}_$folderId' : '${_sortOptionKey}_root';
+    await prefs.setString(key, option.id);
+    if (folderId == null) {
+      await prefs.setString(_sortOptionKey, option.id);
+    }
   }
 
   Future<void> recordNoteAccess(String noteId) async {

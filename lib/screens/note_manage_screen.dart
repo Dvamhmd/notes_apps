@@ -58,12 +58,15 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
     super.dispose();
   }
 
+  String? get _currentFilterFolderId =>
+      _selectedFolderFilter == '__ROOT__' ? null : _selectedFolderFilter;
+
   void _buildFolderMap() {
     _folderMap = {for (final f in _folders) f.id: f};
   }
 
   Future<void> _loadInitialSettings() async {
-    final sort = await _storageService.getSortOption();
+    final sort = await _storageService.getSortOption(folderId: _currentFilterFolderId);
     if (mounted) {
       setState(() {
         _sortOption = sort;
@@ -74,13 +77,24 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
   Future<void> _loadData() async {
     final notes = await _storageService.getNotes();
     final folders = await _storageService.getFolders();
-    final sort = await _storageService.getSortOption();
+    final sort = await _storageService.getSortOption(folderId: _currentFilterFolderId);
     if (mounted) {
       setState(() {
         _allNotes = notes;
         _folders = folders;
         _sortOption = sort;
         _buildFolderMap();
+      });
+    }
+  }
+
+  void _selectFolderFilter(String? folderFilter) async {
+    final folderId = folderFilter == '__ROOT__' ? null : folderFilter;
+    final sort = await _storageService.getSortOption(folderId: folderId);
+    if (mounted) {
+      setState(() {
+        _selectedFolderFilter = folderFilter;
+        _sortOption = sort;
       });
     }
   }
@@ -294,7 +308,7 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
         setState(() {
           _sortOption = newOption;
         });
-        await _storageService.saveSortOption(newOption);
+        await _storageService.saveSortOption(newOption, folderId: _currentFilterFolderId);
         _showToast(
           'Urutan diubah: ${newOption.label}',
           icon: newOption.icon,
@@ -862,22 +876,14 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
                     _buildFilterChip(
                       label: 'Semua (${_allNotes.length})',
                       isSelected: _selectedFolderFilter == null,
-                      onTap: () {
-                        setState(() {
-                          _selectedFolderFilter = null;
-                        });
-                      },
+                      onTap: () => _selectFolderFilter(null),
                     ),
                     const SizedBox(width: 8),
                     _buildFilterChip(
                       label: 'Tanpa Folder (${_allNotes.where((n) => n.folderId == null).length})',
                       isSelected: _selectedFolderFilter == '__ROOT__',
                       icon: Icons.inbox_rounded,
-                      onTap: () {
-                        setState(() {
-                          _selectedFolderFilter = '__ROOT__';
-                        });
-                      },
+                      onTap: () => _selectFolderFilter('__ROOT__'),
                     ),
                     ..._folders.map((folder) {
                       final count = _allNotes.where((n) => n.folderId == folder.id).length;
@@ -888,11 +894,7 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
                           isSelected: _selectedFolderFilter == folder.id,
                           color: Color(folder.colorValue),
                           icon: Icons.folder_rounded,
-                          onTap: () {
-                            setState(() {
-                              _selectedFolderFilter = folder.id;
-                            });
-                          },
+                          onTap: () => _selectFolderFilter(folder.id),
                         ),
                       );
                     }),

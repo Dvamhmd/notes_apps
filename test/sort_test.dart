@@ -172,14 +172,18 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Find the Sort button in search bar
-      final sortButton = find.byTooltip(
-        'Urutkan: ${SortOption.lastAccessed.label}',
-      );
-      expect(sortButton, findsOneWidget);
+      // Find the 3-dots more button in AppBar
+      final moreButton = find.byIcon(Icons.more_vert_rounded);
+      expect(moreButton, findsOneWidget);
 
-      // Tap sort button to open sheet
-      await tester.tap(sortButton);
+      // Tap more button to open popup menu
+      await tester.tap(moreButton);
+      await tester.pumpAndSettle();
+
+      // Tap Urutkan option
+      final sortMenuItem = find.text('Urutkan File & Folder');
+      expect(sortMenuItem, findsOneWidget);
+      await tester.tap(sortMenuItem);
       await tester.pumpAndSettle();
 
       expect(find.text('Urutkan File & Folder'), findsOneWidget);
