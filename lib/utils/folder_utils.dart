@@ -1,4 +1,5 @@
 import '../models/folder_model.dart';
+import '../models/sort_option.dart';
 
 class FolderUtils {
   /// Returns the breadcrumb list of folders from Root to the target folder
@@ -42,24 +43,37 @@ class FolderUtils {
     return path.map((f) => f.name).join(separator);
   }
 
-  /// Sort folders: Pinned first, then most accessed (accessCount desc), then last accessed desc, then createdAt desc
-  static List<FolderModel> sortFolders(List<FolderModel> folders) {
+  /// Sort folders: Pinned always first, then sorted according to selected [SortOption]
+  static List<FolderModel> sortFolders(
+    List<FolderModel> folders, {
+    SortOption sortOption = SortOption.lastAccessed,
+  }) {
     final list = List<FolderModel>.from(folders);
     list.sort((a, b) {
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
-      if (b.accessCount != a.accessCount) {
-        return b.accessCount.compareTo(a.accessCount);
+
+      switch (sortOption) {
+        case SortOption.title:
+          final cmp = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          if (cmp != 0) return cmp;
+          return (b.lastAccessedAt ?? b.createdAt).compareTo(a.lastAccessedAt ?? a.createdAt);
+
+        case SortOption.mostAccessed:
+          if (b.accessCount != a.accessCount) {
+            return b.accessCount.compareTo(a.accessCount);
+          }
+          final timeA = a.lastAccessedAt ?? a.createdAt;
+          final timeB = b.lastAccessedAt ?? b.createdAt;
+          return timeB.compareTo(timeA);
+
+        case SortOption.lastAccessed:
+          final timeA = a.lastAccessedAt ?? a.createdAt;
+          final timeB = b.lastAccessedAt ?? b.createdAt;
+          final cmp = timeB.compareTo(timeA);
+          if (cmp != 0) return cmp;
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       }
-      if (a.lastAccessedAt != null && b.lastAccessedAt != null) {
-        final cmp = b.lastAccessedAt!.compareTo(a.lastAccessedAt!);
-        if (cmp != 0) return cmp;
-      } else if (b.lastAccessedAt != null) {
-        return 1;
-      } else if (a.lastAccessedAt != null) {
-        return -1;
-      }
-      return b.createdAt.compareTo(a.createdAt);
     });
     return list;
   }
@@ -69,10 +83,11 @@ class FolderUtils {
     String? parentId,
     List<FolderModel> allFolders, {
     bool sorted = true,
+    SortOption sortOption = SortOption.lastAccessed,
   }) {
     final direct = allFolders.where((f) => f.parentId == parentId).toList();
     if (sorted) {
-      return sortFolders(direct);
+      return sortFolders(direct, sortOption: sortOption);
     }
     return direct;
   }

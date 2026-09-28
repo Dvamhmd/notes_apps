@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../models/folder_model.dart';
 import '../models/note_model.dart';
 import '../models/search_filter_model.dart';
+import '../models/sort_option.dart';
 import '../services/storage_service.dart';
 import '../utils/folder_utils.dart';
 import '../widgets/custom_selection_controls.dart';
@@ -13,6 +14,7 @@ import '../widgets/create_note_dialog.dart';
 import '../widgets/move_note_dialog.dart';
 import '../widgets/note_card.dart';
 import '../widgets/search_filter_sheet.dart';
+import '../widgets/sort_bottom_sheet.dart';
 import 'folder_manage_screen.dart';
 import 'note_editor_screen.dart';
 
@@ -40,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _searchQuery = '';
   late String? _currentFolderId; // null = Root / Beranda
   SearchFilterConfig _searchFilterConfig = const SearchFilterConfig();
+  SortOption _sortOption = SortOption.lastAccessed;
 
   bool _isSelectionMode = false;
   final Set<String> _selectedNoteIds = {};
@@ -179,8 +182,48 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     _subfolderCountMap = subCounts;
 
-    _cachedCurrentSubfolders = FolderUtils.getSubfolders(_currentFolderId, _folders);
+    _cachedCurrentSubfolders = FolderUtils.getSubfolders(
+      _currentFolderId,
+      _folders,
+      sorted: true,
+      sortOption: _sortOption,
+    );
     _recalculateFilteredItems();
+  }
+
+  void _sortNotesList(List<NoteModel> notes) {
+    notes.sort((a, b) {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+
+      switch (_sortOption) {
+        case SortOption.title:
+          final titleA = (a.title.isEmpty ? a.plainText : a.title).toLowerCase();
+          final titleB = (b.title.isEmpty ? b.plainText : b.title).toLowerCase();
+          final cmp = titleA.compareTo(titleB);
+          if (cmp != 0) return cmp;
+          final timeA = a.lastAccessedAt ?? a.updatedAt;
+          final timeB = b.lastAccessedAt ?? b.updatedAt;
+          return timeB.compareTo(timeA);
+
+        case SortOption.mostAccessed:
+          if (b.accessCount != a.accessCount) {
+            return b.accessCount.compareTo(a.accessCount);
+          }
+          final timeA = a.lastAccessedAt ?? a.updatedAt;
+          final timeB = b.lastAccessedAt ?? b.updatedAt;
+          return timeB.compareTo(timeA);
+
+        case SortOption.lastAccessed:
+          final timeA = a.lastAccessedAt ?? a.updatedAt;
+          final timeB = b.lastAccessedAt ?? b.updatedAt;
+          final cmp = timeB.compareTo(timeA);
+          if (cmp != 0) return cmp;
+          final titleA = (a.title.isEmpty ? a.plainText : a.title).toLowerCase();
+          final titleB = (b.title.isEmpty ? b.plainText : b.title).toLowerCase();
+          return titleA.compareTo(titleB);
+      }
+    });
   }
 
   void _recalculateFilteredItems() {
@@ -212,12 +255,7 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         }).toList();
 
-        matchedNotes.sort((a, b) {
-          if (a.isPinned && !b.isPinned) return -1;
-          if (!a.isPinned && b.isPinned) return 1;
-          return b.updatedAt.compareTo(a.updatedAt);
-        });
-
+        _sortNotesList(matchedNotes);
         _cachedCurrentNotes = matchedNotes;
       }
 
@@ -237,7 +275,7 @@ class _HomeScreenState extends State<HomeScreen> {
           return f.name.toLowerCase().contains(q);
         }).toList();
 
-        _cachedSearchFolders = FolderUtils.sortFolders(matchedFolders);
+        _cachedSearchFolders = FolderUtils.sortFolders(matchedFolders, sortOption: _sortOption);
       }
     } else {
       _cachedSearchFolders = [];
@@ -245,11 +283,7 @@ class _HomeScreenState extends State<HomeScreen> {
           .where((n) => n.folderId == _currentFolderId)
           .toList();
 
-      list.sort((a, b) {
-        if (a.isPinned && !b.isPinned) return -1;
-        if (!a.isPinned && b.isPinned) return 1;
-        return b.updatedAt.compareTo(a.updatedAt);
-      });
+      _sortNotesList(list);
       _cachedCurrentNotes = list;
     }
   }
@@ -258,10 +292,12 @@ class _HomeScreenState extends State<HomeScreen> {
     await _storageService.initializeDefaultsIfNeeded();
     final notes = await _storageService.getNotes();
     final folders = await _storageService.getFolders();
+    final savedSort = await _storageService.getSortOption();
     if (mounted) {
       setState(() {
         _allNotes = notes;
         _folders = folders;
+        _sortOption = savedSort;
         _isLoading = false;
 
         // Verify if current folder still exists
@@ -326,8 +362,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _currentFolderId = folderId;
       _searchQuery = '';
       _searchController.clear();
-      _cachedCurrentSubfolders = FolderUtils.getSubfolders(_currentFolderId, _folders);
-      _recalculateFilteredItems();
+      _recalculateDerivedData();
     });
     _autoScrollBreadcrumbToEnd();
   }
@@ -391,7 +426,22 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _showSortBottomSheet() {
+    SortBottomSheet.show(
+      context,
+      currentSortOption: _sortOption,
+      onSelect: (newOption) async {
+        setState(() {
+          _sortOption = newOption;
+          _recalculateDerivedData();
+        });
+        await _storageService.saveSortOption(newOption);
+      },
+    );
+  }
+
   void _openNoteEditor(NoteModel note) {
+    _storageService.recordNoteAccess(note.id);
     Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (ctx, animation, secondaryAnimation) => RepaintBoundary(
@@ -1914,9 +1964,40 @@ class _HomeScreenState extends State<HomeScreen> {
                         _showCreateFolderDialog();
                       } else if (val == 'create_note') {
                         _onAddNotePressed();
+                      } else if (val == 'sort_items') {
+                        _showSortBottomSheet();
                       }
                     },
                     itemBuilder: (ctx) => [
+                      PopupMenuItem(
+                        value: 'sort_items',
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEEF2FF),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.swap_vert_rounded,
+                                size: 18,
+                                color: Color(0xFF4F46E5),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Urutkan File & Folder',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuDivider(),
                       PopupMenuItem(
                         value: 'create_folder',
                         child: Row(
@@ -2020,7 +2101,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   constraints: const BoxConstraints(maxWidth: 900),
                   child: Column(
                     children: [
-                      // Search Bar with Filter Button
+                      // Search Bar with Filter and Sort Buttons
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
                         child: Container(
@@ -2028,14 +2109,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: !_searchFilterConfig.isDefault
+                              color: (!_searchFilterConfig.isDefault || _sortOption != SortOption.lastAccessed)
                                   ? const Color(0xFF4F46E5).withValues(alpha: 0.6)
                                   : const Color(0xFFE2E8F0),
-                              width: !_searchFilterConfig.isDefault ? 1.5 : 1.0,
+                              width: (!_searchFilterConfig.isDefault || _sortOption != SortOption.lastAccessed) ? 1.5 : 1.0,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: !_searchFilterConfig.isDefault
+                                color: (!_searchFilterConfig.isDefault || _sortOption != SortOption.lastAccessed)
                                     ? const Color(0xFF4F46E5).withValues(alpha: 0.08)
                                     : const Color(0xFF0F172A).withValues(alpha: 0.02),
                                 blurRadius: 8,
@@ -2095,6 +2176,33 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                   ),
                                 ),
+                              ),
+                              // Sort Button with Active Badge/Style
+                              IconButton(
+                                tooltip: 'Urutkan: ${_sortOption.label}',
+                                icon: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    const Icon(
+                                      Icons.swap_vert_rounded,
+                                      size: 21,
+                                      color: Color(0xFF4F46E5),
+                                    ),
+                                    Positioned(
+                                      top: -2,
+                                      right: -2,
+                                      child: Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFF4F46E5),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                onPressed: _showSortBottomSheet,
                               ),
                               // Filter Button with Badge
                               IconButton(
@@ -3045,23 +3153,61 @@ class _HomeScreenState extends State<HomeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'CATATAN (${notes.length})',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF94A3B8),
-                letterSpacing: 0.8,
-              ),
+            Row(
+              children: [
+                Text(
+                  'CATATAN (${notes.length})',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF94A3B8),
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                if (notes.isNotEmpty && _currentFolderId == null) ...[
+                  const SizedBox(width: 6),
+                  const Text(
+                    '• Tanpa Folder',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF94A3B8),
+                    ),
+                  ),
+                ],
+              ],
             ),
-            if (notes.isNotEmpty && _currentFolderId == null)
-              const Text(
-                'Tanpa Folder (Utama)',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF94A3B8),
+            InkWell(
+              onTap: _showSortBottomSheet,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _sortOption.icon,
+                      size: 13,
+                      color: const Color(0xFF4F46E5),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _sortOption.label,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF4F46E5),
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 14,
+                      color: Color(0xFF4F46E5),
+                    ),
+                  ],
                 ),
               ),
+            ),
           ],
         ),
         const SizedBox(height: 10),

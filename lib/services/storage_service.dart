@@ -3,12 +3,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../models/folder_model.dart';
 import '../models/note_model.dart';
+import '../models/sort_option.dart';
 import '../utils/folder_utils.dart';
 
 class StorageService {
   static const String _notesKey = 'user_notes_data_v1';
   static const String _foldersKey = 'user_folders_data_v1';
   static const String _initialSetupKey = 'is_app_initialized_v2'; // Bump version for nested folders demo
+  static const String _sortOptionKey = 'pref_sort_option_v1';
 
   final _uuid = const Uuid();
 
@@ -240,5 +242,43 @@ class StorageService {
   Future<void> saveLineSpacing(double spacing) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_lineSpacingKey, spacing);
+  }
+
+  // --- Sorting & Access Tracking ---
+  Future<SortOption> getSortOption() async {
+    final prefs = await SharedPreferences.getInstance();
+    final sortId = prefs.getString(_sortOptionKey);
+    return SortOption.fromId(sortId);
+  }
+
+  Future<void> saveSortOption(SortOption option) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_sortOptionKey, option.id);
+  }
+
+  Future<void> recordNoteAccess(String noteId) async {
+    final notes = await getNotes();
+    final index = notes.indexWhere((n) => n.id == noteId);
+    if (index >= 0) {
+      final note = notes[index];
+      notes[index] = note.copyWith(
+        accessCount: note.accessCount + 1,
+        lastAccessedAt: DateTime.now(),
+      );
+      await saveNotes(notes);
+    }
+  }
+
+  Future<void> recordFolderAccess(String folderId) async {
+    final folders = await getFolders();
+    final index = folders.indexWhere((f) => f.id == folderId);
+    if (index >= 0) {
+      final folder = folders[index];
+      folders[index] = folder.copyWith(
+        accessCount: folder.accessCount + 1,
+        lastAccessedAt: DateTime.now(),
+      );
+      await saveFolders(folders);
+    }
   }
 }
