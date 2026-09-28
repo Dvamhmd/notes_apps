@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/folder_model.dart';
 import '../models/note_model.dart';
+import '../models/sort_option.dart';
 import '../services/storage_service.dart';
 import '../utils/folder_utils.dart';
 import '../widgets/create_folder_dialog.dart';
@@ -212,6 +214,67 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
     }
   }
 
+  Future<void> _onReorderFolders(
+    int oldIndex,
+    int newIndex,
+    List<FolderTreeNode> visibleNodes,
+  ) async {
+    if (newIndex > oldIndex) {
+      newIndex -= 1;
+    }
+    if (oldIndex == newIndex || oldIndex >= visibleNodes.length || newIndex >= visibleNodes.length) {
+      return;
+    }
+
+    final movedNode = visibleNodes[oldIndex];
+    final movedFolder = movedNode.folder;
+
+    // Kumpulkan semua subfolder turunannya agar ikut berpindah bersama folder induknya
+    final descendantIds =
+        FolderUtils.getDescendantFolderIds(movedFolder.id, _folders);
+    final idsToMove = {movedFolder.id, ...descendantIds};
+    final itemsToMove =
+        _folders.where((f) => idsToMove.contains(f.id)).toList();
+
+    setState(() {
+      _folders.removeWhere((f) => idsToMove.contains(f.id));
+
+      if (newIndex >= visibleNodes.length - 1) {
+        _folders.addAll(itemsToMove);
+      } else {
+        final targetFolder = visibleNodes[newIndex].folder;
+        final targetIdx = _folders.indexWhere((f) => f.id == targetFolder.id);
+        if (targetIdx >= 0) {
+          if (oldIndex < newIndex) {
+            final targetDescendants =
+                FolderUtils.getDescendantFolderIds(targetFolder.id, _folders);
+            final lastDescendantIdx = targetDescendants.isEmpty
+                ? targetIdx
+                : _folders.lastIndexWhere((f) => targetDescendants.contains(f.id));
+            final insertPos = (lastDescendantIdx >= 0 ? lastDescendantIdx : targetIdx) + 1;
+            _folders.insertAll(insertPos.clamp(0, _folders.length), itemsToMove);
+          } else {
+            _folders.insertAll(targetIdx.clamp(0, _folders.length), itemsToMove);
+          }
+        } else {
+          _folders.addAll(itemsToMove);
+        }
+      }
+    });
+
+    final storageService = StorageService();
+    await storageService.saveFolders(_folders);
+    await storageService.saveSortOption(SortOption.manual);
+    HapticFeedback.selectionClick();
+
+    _showToast(
+      'Urutan folder berhasil disimpan (Mode Manual Aktif)',
+      icon: Icons.drag_indicator_rounded,
+      iconColor: const Color(0xFF6366F1),
+      duration: const Duration(milliseconds: 2000),
+    );
+  }
+
   void _togglePin(FolderModel folder) {
     final updated = folder.copyWith(isPinned: !folder.isPinned);
     setState(() {
@@ -221,6 +284,264 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
       }
     });
     widget.onTogglePin?.call(folder);
+  }
+
+  void _showFolderActionMenu(FolderModel folder) {
+    HapticFeedback.mediumImpact();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Handle bar
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Header dengan nama folder & ikon warna folder
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Color(folder.colorValue).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.folder_rounded,
+                        color: Color(folder.colorValue),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  folder.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1E293B),
+                                  ),
+                                ),
+                              ),
+                              if (folder.isLocked) ...[
+                                const SizedBox(width: 6),
+                                const Icon(
+                                  Icons.lock_rounded,
+                                  size: 14,
+                                  color: Color(0xFFD97706),
+                                ),
+                              ],
+                              if (folder.isPinned) ...[
+                                const SizedBox(width: 6),
+                                Transform.rotate(
+                                  angle: 0.45,
+                                  child: Icon(
+                                    Icons.push_pin_rounded,
+                                    size: 14,
+                                    color: Color(folder.colorValue),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Pilih tindakan untuk folder ini',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
+                const SizedBox(height: 10),
+
+                // 1. Kunci / Kelola Sandi
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: folder.isLocked
+                          ? const Color(0xFFFEF3C7)
+                          : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      folder.isLocked
+                          ? Icons.lock_rounded
+                          : Icons.lock_outline_rounded,
+                      color: folder.isLocked
+                          ? const Color(0xFFD97706)
+                          : const Color(0xFF64748B),
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    folder.isLocked
+                        ? 'Kelola Kata Sandi Folder'
+                        : 'Kunci Folder dengan Sandi',
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                  subtitle: Text(
+                    folder.isLocked
+                        ? 'Ubah atau hapus proteksi kata sandi'
+                        : 'Proteksi catatan di folder dengan kata sandi',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _handleLockFolder(folder);
+                  },
+                ),
+
+                // 2. Sematkan / Lepas Sematan
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: folder.isPinned
+                          ? Color(folder.colorValue).withValues(alpha: 0.14)
+                          : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      folder.isPinned
+                          ? Icons.push_pin_rounded
+                          : Icons.push_pin_outlined,
+                      color: folder.isPinned
+                          ? Color(folder.colorValue)
+                          : const Color(0xFF64748B),
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    folder.isPinned ? 'Lepas Sematan' : 'Sematkan Folder',
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                  subtitle: Text(
+                    folder.isPinned
+                        ? 'Kembalikan posisi folder ke urutan biasa'
+                        : 'Posisikan folder selalu di urutan teratas',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _togglePin(folder);
+                  },
+                ),
+
+                // 3. Tambah Subfolder
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF2FF),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.create_new_folder_rounded,
+                      color: Color(0xFF4F46E5),
+                      size: 20,
+                    ),
+                  ),
+                  title: const Text(
+                    'Tambah Subfolder',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Buat folder baru di dalam folder ini',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _createNewFolder(parentId: folder.id);
+                  },
+                ),
+
+                // 4. Hapus Folder
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: Color(0xFFEF4444),
+                      size: 20,
+                    ),
+                  ),
+                  title: const Text(
+                    'Hapus Folder',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFEF4444),
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Hapus folder atau beserta seluruh isinya',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _confirmDeleteFolder(folder);
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _confirmDeleteFolder(FolderModel folder) {
@@ -618,7 +939,37 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
                     ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
+              if (_folders.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE0E7FF)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 16,
+                        color: Color(0xFF4F46E5),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Tahan & geser ( ⠿ ) untuk urutan manual. Klik tahan kartu folder untuk opsi lengkap.',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0xFF4338CA),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               if (_folders.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(28),
@@ -634,209 +985,202 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
                   ),
                 )
               else
-                ...visibleNodes.map((node) {
-                  final folder = node.folder;
-                  final isExpanded = _expandedFolderIds.contains(folder.id);
-                  final noteCount = _getDirectNoteCount(folder.id);
-                  final subfolderCount = node.children.length;
-                  final indentLeft = node.depth * 18.0;
+                ReorderableListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  buildDefaultDragHandles: false,
+                  itemCount: visibleNodes.length,
+                  onReorder: (oldIndex, newIndex) =>
+                      _onReorderFolders(oldIndex, newIndex, visibleNodes),
+                  itemBuilder: (context, index) {
+                    final node = visibleNodes[index];
+                    final folder = node.folder;
+                    final isExpanded = _expandedFolderIds.contains(folder.id);
+                    final noteCount = _getDirectNoteCount(folder.id);
+                    final subfolderCount = node.children.length;
+                    final indentLeft = node.depth * 18.0;
 
-                  return Container(
-                    margin: EdgeInsets.only(bottom: 10, left: indentLeft),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: folder.isPinned
-                            ? Color(folder.colorValue).withValues(alpha: 0.4)
-                            : (node.depth > 0
-                                ? const Color(0xFFE2E8F0)
-                                : const Color(0xFFCBD5E1)),
-                        width: folder.isPinned ? 1.5 : 1.0,
+                    return Container(
+                      key: ValueKey('folder_${folder.id}'),
+                      margin: EdgeInsets.only(bottom: 10, left: indentLeft),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: folder.isPinned
+                              ? Color(folder.colorValue).withValues(alpha: 0.4)
+                              : (node.depth > 0
+                                  ? const Color(0xFFE2E8F0)
+                                  : const Color(0xFFCBD5E1)),
+                          width: folder.isPinned ? 1.5 : 1.0,
+                        ),
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        if (node.hasChildren)
-                          InkWell(
-                            borderRadius: BorderRadius.circular(8),
-                            onTap: () => _toggleFolder(folder.id),
-                            child: Padding(
-                              padding: const EdgeInsets.all(4.0),
-                              child: Icon(
-                                isExpanded
-                                    ? Icons.keyboard_arrow_down_rounded
-                                    : Icons.keyboard_arrow_right_rounded,
-                                size: 22,
-                                color: const Color(0xFF64748B),
-                              ),
-                            ),
-                          )
-                        else if (node.depth > 0)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 6),
-                            child: Icon(
-                              Icons.subdirectory_arrow_right_rounded,
-                              size: 18,
-                              color: Color(0xFFCBD5E1),
-                            ),
-                          )
-                        else
-                          const SizedBox(width: 4),
-                        InkWell(
-                          borderRadius: BorderRadius.circular(12),
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
                           onTap: () => _openFolder(folder.id),
-                          child: Container(
-                            padding: const EdgeInsets.all(9),
-                            decoration: BoxDecoration(
-                              color: Color(folder.colorValue).withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(12),
+                          onLongPress: () => _showFolderActionMenu(folder),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 10,
                             ),
-                            child: Icon(
-                              Icons.folder_rounded,
-                              color: Color(folder.colorValue),
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(8),
-                            onTap: () => _openFolder(folder.id),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 2.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          folder.name,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: node.depth == 0
-                                                ? FontWeight.w700
-                                                : FontWeight.w600,
-                                            color: const Color(0xFF1E293B),
-                                          ),
-                                        ),
+                            child: Row(
+                              children: [
+                                // Reorder Drag Handle
+                                ReorderableDragStartListener(
+                                  index: index,
+                                  child: const Padding(
+                                    padding: EdgeInsets.only(left: 2, right: 6, top: 4, bottom: 4),
+                                    child: Icon(
+                                      Icons.drag_indicator_rounded,
+                                      size: 20,
+                                      color: Color(0xFF94A3B8),
+                                    ),
+                                  ),
+                                ),
+                                if (node.hasChildren)
+                                  InkWell(
+                                    borderRadius: BorderRadius.circular(8),
+                                    onTap: () => _toggleFolder(folder.id),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4.0),
+                                      child: Icon(
+                                        isExpanded
+                                            ? Icons.keyboard_arrow_down_rounded
+                                            : Icons.keyboard_arrow_right_rounded,
+                                        size: 20,
+                                        color: const Color(0xFF64748B),
                                       ),
-                                      if (folder.isLocked) ...[
-                                        const SizedBox(width: 6),
-                                        const Icon(
-                                          Icons.lock_rounded,
-                                          size: 13,
-                                          color: Color(0xFFD97706),
-                                        ),
-                                      ],
-                                      if (folder.isPinned) ...[
-                                        const SizedBox(width: 6),
-                                        Transform.rotate(
-                                          angle: 0.45,
-                                          child: Icon(
-                                            Icons.push_pin_rounded,
-                                            size: 13,
-                                            color: Color(folder.colorValue),
+                                    ),
+                                  )
+                                else if (node.depth > 0)
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 4),
+                                    child: Icon(
+                                      Icons.subdirectory_arrow_right_rounded,
+                                      size: 16,
+                                      color: Color(0xFFCBD5E1),
+                                    ),
+                                  )
+                                else
+                                  const SizedBox(width: 2),
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Color(folder.colorValue).withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Icon(
+                                    Icons.folder_rounded,
+                                    color: Color(folder.colorValue),
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              folder.name,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 14.5,
+                                                fontWeight: node.depth == 0
+                                                    ? FontWeight.w700
+                                                    : FontWeight.w600,
+                                                color: const Color(0xFF1E293B),
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                          if (folder.isLocked) ...[
+                                            const SizedBox(width: 6),
+                                            const Icon(
+                                              Icons.lock_rounded,
+                                              size: 13,
+                                              color: Color(0xFFD97706),
+                                            ),
+                                          ],
+                                          if (folder.isPinned) ...[
+                                            const SizedBox(width: 6),
+                                            Transform.rotate(
+                                              angle: 0.45,
+                                              child: Icon(
+                                                Icons.push_pin_rounded,
+                                                size: 13,
+                                                color: Color(folder.colorValue),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          Text(
+                                            '$noteCount catatan',
+                                            style: const TextStyle(
+                                              fontSize: 11.5,
+                                              color: Color(0xFF94A3B8),
+                                            ),
+                                          ),
+                                          if (subfolderCount > 0) ...[
+                                            const Text(
+                                              ' • ',
+                                              style: TextStyle(
+                                                fontSize: 11.5,
+                                                color: Color(0xFFCBD5E1),
+                                              ),
+                                            ),
+                                            Flexible(
+                                              child: Text(
+                                                '$subfolderCount subfolder${!isExpanded ? ' (ditutup)' : ''}',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 11.5,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: !isExpanded
+                                                      ? const Color(0xFF4F46E5)
+                                                      : const Color(0xFF64748B),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
                                     ],
                                   ),
-                                  const SizedBox(height: 2),
-                                  Row(
-                                    children: [
-                                      Text(
-                                        '$noteCount catatan',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          color: Color(0xFF94A3B8),
-                                        ),
-                                      ),
-                                      if (subfolderCount > 0) ...[
-                                        const Text(
-                                          ' • ',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: Color(0xFFCBD5E1),
-                                          ),
-                                        ),
-                                        Text(
-                                          '$subfolderCount subfolder${!isExpanded ? ' (ditutup)' : ''}',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w500,
-                                            color: !isExpanded
-                                                ? const Color(0xFF4F46E5)
-                                                : const Color(0xFF64748B),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
+                                ),
+                                // More actions button (Titik 3)
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                  padding: const EdgeInsets.all(4),
+                                  splashRadius: 18,
+                                  icon: const Icon(
+                                    Icons.more_vert_rounded,
+                                    color: Color(0xFF94A3B8),
+                                    size: 20,
                                   ),
-                                ],
-                              ),
+                                  tooltip: 'Opsi Folder (Klik tahan kartu)',
+                                  onPressed: () => _showFolderActionMenu(folder),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                        // Lock / Unlock button
-                        IconButton(
-                          icon: Icon(
-                            folder.isLocked
-                                ? Icons.lock_rounded
-                                : Icons.lock_outline_rounded,
-                            color: folder.isLocked
-                                ? const Color(0xFFD97706)
-                                : const Color(0xFF94A3B8),
-                            size: 19,
-                          ),
-                          tooltip: folder.isLocked ? 'Kelola Kata Sandi Folder' : 'Kunci Folder dengan Kata Sandi',
-                          onPressed: () => _handleLockFolder(folder),
-                        ),
-                        // Pin / Unpin button
-                        IconButton(
-                          icon: Icon(
-                            folder.isPinned
-                                ? Icons.push_pin_rounded
-                                : Icons.push_pin_outlined,
-                            color: folder.isPinned
-                                ? Color(folder.colorValue)
-                                : const Color(0xFF94A3B8),
-                            size: 19,
-                          ),
-                          tooltip: folder.isPinned ? 'Lepas Sematan' : 'Sematkan Folder',
-                          onPressed: () => _togglePin(folder),
-                        ),
-                        // Quick add subfolder button
-                        IconButton(
-                          icon: const Icon(
-                            Icons.add_circle_outline_rounded,
-                            color: Color(0xFF4F46E5),
-                            size: 19,
-                          ),
-                          tooltip: 'Tambah Subfolder di sini',
-                          onPressed: () => _createNewFolder(parentId: folder.id),
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.delete_outline_rounded,
-                            color: Color(0xFFEF4444),
-                            size: 19,
-                          ),
-                          tooltip: 'Hapus Folder',
-                          onPressed: () => _confirmDeleteFolder(folder),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
+                      ),
+                    );
+                  },
+                ),
             ],
           ),
         ),

@@ -80,6 +80,19 @@ void main() {
       expect(sorted[1].id, folderA.id);
       expect(sorted[2].id, folderB.id);
     });
+
+    test('sortFolders by SortOption.manual preserves original list order with pinned on top', () {
+      final sorted = FolderUtils.sortFolders(
+        [folderA, folderB, folderC],
+        sortOption: SortOption.manual,
+      );
+
+      // folderC is pinned -> index 0
+      expect(sorted[0].id, folderC.id);
+      // folderA and folderB maintain their original relative order (A then B)
+      expect(sorted[1].id, folderA.id);
+      expect(sorted[2].id, folderB.id);
+    });
   });
 
   group('NoteModel accessCount & lastAccessedAt serialization', () {
@@ -107,7 +120,7 @@ void main() {
   });
 
   group('SortBottomSheet widget test', () {
-    testWidgets('renders all 3 sorting options and triggers selection callback', (WidgetTester tester) async {
+    testWidgets('renders all 4 sorting options including manual and triggers selection callback', (WidgetTester tester) async {
       SortOption? selected;
 
       await tester.pumpWidget(
@@ -137,15 +150,16 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Urutkan File & Folder'), findsOneWidget);
+      expect(find.text('Nonaktif (Urutan Manual)'), findsOneWidget);
       expect(find.text('Berdasarkan Judul'), findsOneWidget);
       expect(find.text('Terakhir Diakses / Diedit'), findsOneWidget);
       expect(find.text('Paling Sering Dibuka'), findsOneWidget);
 
-      // Tap 'Paling Sering Dibuka'
-      await tester.tap(find.text('Paling Sering Dibuka'));
+      // Tap 'Nonaktif (Urutan Manual)'
+      await tester.tap(find.text('Nonaktif (Urutan Manual)'));
       await tester.pumpAndSettle();
 
-      expect(selected, SortOption.mostAccessed);
+      expect(selected, SortOption.manual);
     });
   });
 

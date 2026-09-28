@@ -198,6 +198,9 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!a.isPinned && b.isPinned) return 1;
 
       switch (_sortOption) {
+        case SortOption.manual:
+          return 0; // Preserve natural/manual list order (pinned still top)
+
         case SortOption.title:
           final titleA = (a.title.isEmpty ? a.plainText : a.title).toLowerCase();
           final titleB = (b.title.isEmpty ? b.plainText : b.title).toLowerCase();
@@ -2303,14 +2306,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: (!_searchFilterConfig.isDefault || _sortOption != SortOption.lastAccessed)
+                              color: (!_searchFilterConfig.isDefault || _sortOption.isActive)
                                   ? const Color(0xFF4F46E5).withValues(alpha: 0.6)
                                   : const Color(0xFFE2E8F0),
-                              width: (!_searchFilterConfig.isDefault || _sortOption != SortOption.lastAccessed) ? 1.5 : 1.0,
+                              width: (!_searchFilterConfig.isDefault || _sortOption.isActive) ? 1.5 : 1.0,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: (!_searchFilterConfig.isDefault || _sortOption != SortOption.lastAccessed)
+                                color: (!_searchFilterConfig.isDefault || _sortOption.isActive)
                                     ? const Color(0xFF4F46E5).withValues(alpha: 0.08)
                                     : const Color(0xFF0F172A).withValues(alpha: 0.02),
                                 blurRadius: 8,
@@ -2371,34 +2374,37 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ),
                               ),
-                              // Sort Button with Active Badge/Style
+                              // Sort Button with Active Badge/Style (Blue dot only when sorting is active)
                               IconButton(
                                 tooltip: 'Urutkan: ${_sortOption.label}',
                                 icon: Stack(
                                   clipBehavior: Clip.none,
                                   children: [
-                                    const Icon(
+                                    Icon(
                                       Icons.swap_vert_rounded,
                                       size: 21,
-                                      color: Color(0xFF4F46E5),
+                                      color: _sortOption.isActive
+                                          ? const Color(0xFF4F46E5)
+                                          : const Color(0xFF64748B),
                                     ),
-                                    Positioned(
-                                      top: -2,
-                                      right: -2,
-                                      child: Container(
-                                        width: 8,
-                                        height: 8,
-                                        decoration: const BoxDecoration(
-                                          color: Color(0xFF4F46E5),
-                                          shape: BoxShape.circle,
+                                    if (_sortOption.isActive)
+                                      Positioned(
+                                        top: -2,
+                                        right: -2,
+                                        child: Container(
+                                          width: 8,
+                                          height: 8,
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFF4F46E5),
+                                            shape: BoxShape.circle,
+                                          ),
                                         ),
                                       ),
-                                    ),
                                   ],
                                 ),
                                 onPressed: _showSortBottomSheet,
                               ),
-                              // Filter Button with Badge
+                              // Filter Button with Blue Dot Badge (Shown when filter is applied)
                               IconButton(
                                 tooltip: 'Filter Pencarian',
                                 icon: Stack(

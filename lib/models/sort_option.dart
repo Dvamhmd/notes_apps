@@ -2,17 +2,23 @@ import 'package:flutter/material.dart';
 
 /// Opsi pengurutan (sorting) untuk file catatan dan folder
 enum SortOption {
-  title(
-    id: 'title',
-    label: 'Berdasarkan Judul',
-    subtitle: 'Nama / Judul alfabetis (A - Z)',
-    icon: Icons.sort_by_alpha_rounded,
+  manual(
+    id: 'manual',
+    label: 'Nonaktif (Urutan Manual)',
+    subtitle: 'Atur susunan bebas & geser di Kelola Folder',
+    icon: Icons.drag_indicator_rounded,
   ),
   lastAccessed(
     id: 'last_accessed',
     label: 'Terakhir Diakses / Diedit',
     subtitle: 'Aktivitas terbaru di urutan teratas',
     icon: Icons.access_time_filled_rounded,
+  ),
+  title(
+    id: 'title',
+    label: 'Berdasarkan Judul',
+    subtitle: 'Nama / Judul alfabetis (A - Z)',
+    icon: Icons.sort_by_alpha_rounded,
   ),
   mostAccessed(
     id: 'most_accessed',
@@ -33,8 +39,12 @@ enum SortOption {
     required this.icon,
   });
 
+  bool get isActive => this != SortOption.manual;
+
   static SortOption fromId(String? id) {
     switch (id) {
+      case 'manual':
+        return SortOption.manual;
       case 'title':
         return SortOption.title;
       case 'most_accessed':
@@ -45,3 +55,4 @@ enum SortOption {
     }
   }
 }
+

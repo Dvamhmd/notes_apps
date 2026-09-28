@@ -54,6 +54,9 @@ class FolderUtils {
       if (!a.isPinned && b.isPinned) return 1;
 
       switch (sortOption) {
+        case SortOption.manual:
+          return 0; // Preserve natural/manual list order (pinned still top)
+
         case SortOption.title:
           final cmp = a.name.toLowerCase().compareTo(b.name.toLowerCase());
           if (cmp != 0) return cmp;
