@@ -1,22 +1,23 @@
 // ignore_for_file: experimental_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
+import 'link_service.dart';
 
-/// Smart QuillController that preserves formatting across lines and spaces.
-///
-/// Prevents text format (e.g. bold, italic, underline, color, size) from
-/// unintentionally reverting to the previous line's or previous word's format
-/// when characters are deleted back to a newline or space boundary and retyped.
+/// Smart QuillController that preserves formatting across lines and spaces
+/// and automatically detects URLs to make them clickable.
 class SmartQuillController extends QuillController {
   SmartQuillController({
     required super.document,
     required super.selection,
     super.readOnly = false,
-  });
+  }) {
+    LinkService.autoFormatLinks(document);
+  }
 
   factory SmartQuillController.basic() {
+    final doc = Document();
     return SmartQuillController(
-      document: Document(),
+      document: doc,
       selection: const TextSelection.collapsed(offset: 0),
     );
   }
@@ -78,6 +79,11 @@ class SmartQuillController extends QuillController {
       shouldNotifyListeners: shouldNotifyListeners,
     );
 
+    // Auto-detect links if text was inserted or changed
+    if (data is String && data.isNotEmpty) {
+      LinkService.autoFormatLinks(document);
+    }
+
     // If text was inserted, update _lastActiveInlineMap from current selection style
     if (data is String && data.isNotEmpty) {
       final currentStyle = getSelectionStyle();
@@ -123,3 +129,4 @@ class SmartQuillController extends QuillController {
     }
   }
 }
+

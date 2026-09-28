@@ -349,8 +349,6 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
 
-    final rawEditorState = editorKey.currentState!.editableTextKey.currentState!;
-    final renderEditor = rawEditorState.renderEditor;
     // Drag the handle from the end to line 3
     final handleFinder = find.byKey(const Key('quill_cursor_teardrop_handle'));
     expect(handleFinder, findsOneWidget);

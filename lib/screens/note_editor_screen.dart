@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import '../models/folder_model.dart';
 import '../models/note_model.dart';
+import '../services/link_service.dart';
 import '../services/rich_clipboard_service.dart';
 import '../services/smart_quill_controller.dart';
 import '../utils/folder_utils.dart';
@@ -481,6 +482,21 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                             paintCursorAboveText: true,
                             enableSelectionToolbar: true,
                             textSelectionControls: CustomTouchTextSelectionControls.instance,
+                            linkActionPickerDelegate: (context, link, node) async {
+                              await LinkService.showLinkActionDialog(
+                                context,
+                                link,
+                                controller: _quillController,
+                              );
+                              return LinkMenuAction.none;
+                            },
+                            onLaunchUrl: (url) async {
+                              await LinkService.showLinkActionDialog(
+                                context,
+                                url,
+                                controller: _quillController,
+                              );
+                            },
                             contextMenuBuilder: (context, rawEditorState) {
                               final buttonItems = rawEditorState.contextMenuButtonItems;
                               return AdaptiveTextSelectionToolbar.buttonItems(
@@ -521,6 +537,14 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                               DividerEmbedBuilder(),
                             ],
                             customStyleBuilder: (Attribute attribute) {
+                              if (attribute.key == Attribute.link.key) {
+                                return const TextStyle(
+                                  color: Color(0xFF2563EB),
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: Color(0xFF2563EB),
+                                  decorationThickness: 1.3,
+                                );
+                              }
                               if (attribute.key == Attribute.underline.key) {
                                 return const TextStyle(
                                   decoration: TextDecoration.underline,
@@ -597,6 +621,12 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                               return null;
                             },
                             customStyles: const DefaultStyles(
+                              link: TextStyle(
+                                color: Color(0xFF2563EB),
+                                decoration: TextDecoration.underline,
+                                decorationColor: Color(0xFF2563EB),
+                                decorationThickness: 1.3,
+                              ),
                               paragraph: DefaultTextBlockStyle(
                                 TextStyle(
                                   fontFamily: 'Poppins',
@@ -675,6 +705,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                               ),
                             ),
                           ),
+
                         ),
                       ),
                     ),
