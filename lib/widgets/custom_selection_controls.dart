@@ -39,20 +39,24 @@ class CustomTouchTextSelectionControls extends MaterialTextSelectionControls {
     final handleColor = theme.textSelectionTheme.selectionHandleColor ??
         theme.colorScheme.primary;
 
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.translucent,
-      child: SizedBox(
-        width: handleWidth,
-        height: handleHeight,
-        child: CustomPaint(
-          painter: TeardropHandlePainter(
-            color: handleColor,
-            type: type,
-          ),
+    final Widget handle = SizedBox(
+      width: handleWidth,
+      height: handleHeight,
+      child: CustomPaint(
+        painter: TeardropHandlePainter(
+          color: handleColor,
+          type: type,
         ),
       ),
     );
+
+    if (onTap != null) {
+      return GestureDetector(
+        onTap: onTap,
+        child: handle,
+      );
+    }
+    return handle;
   }
 
   // ignore: deprecated_member_use

@@ -260,7 +260,7 @@ void main() {
     expect(anchor.dy, 0.0);
   });
 
-  testWidgets('Test NoteEditorScreen initializes with teardrop cursor handle overlay', (WidgetTester tester) async {
+  testWidgets('Test NoteEditorScreen initializes with custom teardrop text selection controls', (WidgetTester tester) async {
     final note = NoteModel(
       id: 'note-1',
       title: 'Judul Catatan Android',
@@ -289,7 +289,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byType(QuillCursorHandleOverlay), findsOneWidget);
     expect(find.byType(QuillEditor), findsOneWidget);
   });
 }

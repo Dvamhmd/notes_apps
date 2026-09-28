@@ -1040,84 +1040,80 @@ class _CustomToolbarState extends State<CustomToolbar> {
                   ),
 
                   // 2. Ukuran Teks & Jarak Baris Picker
-                  InkWell(
-                    onTap: _showFontSizeAndSpacingDialog,
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.format_size_rounded,
-                            size: 16,
-                            color: Color(0xFF475569),
+                  Tooltip(
+                    message: 'Ukuran Teks & Jarak Baris',
+                    child: InkWell(
+                      onTap: _showFontSizeAndSpacingDialog,
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: const Color(0xFFE2E8F0),
+                            width: 1,
                           ),
-                          const SizedBox(width: 3),
-                          Text(
-                            _currentSize,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF1E293B),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.format_size_rounded,
+                              size: 18,
+                              color: Color(0xFF475569),
                             ),
-                          ),
-                          const SizedBox(width: 2),
-                          const Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            size: 15,
-                            color: Color(0xFF64748B),
-                          ),
-                        ],
+                            SizedBox(width: 2),
+                            Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 15,
+                              color: Color(0xFF94A3B8),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
 
                   // 3. Font Color Picker
-                  InkWell(
-                    onTap: _showColorPicker,
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 14,
-                            height: 14,
-                            decoration: BoxDecoration(
-                              color: _currentColor,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: const Color(0xFFCBD5E1),
-                                width: 1,
+                  Tooltip(
+                    message: 'Warna Teks',
+                    child: InkWell(
+                      onTap: _showColorPicker,
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: const Color(0xFFE2E8F0),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 15,
+                              height: 15,
+                              decoration: BoxDecoration(
+                                color: _currentColor,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.black.withValues(alpha: 0.2),
+                                  width: 1.5,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Text(
-                            'Warna',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF1E293B),
+                            const SizedBox(width: 2),
+                            const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 15,
+                              color: Color(0xFF94A3B8),
                             ),
-                          ),
-                          const SizedBox(width: 2),
-                          const Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            size: 15,
-                            color: Color(0xFF64748B),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),

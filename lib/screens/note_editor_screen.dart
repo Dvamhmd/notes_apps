@@ -472,15 +472,15 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                           editorKey: _editorKey,
                           child: QuillEditor.basic(
                             key: _editorKey,
-                            controller: _quillController,
-                            focusNode: _editorFocusNode,
-                            scrollController: _editorScrollController,
-                            config: QuillEditorConfig(
-                              enableInteractiveSelection: true,
-                              showCursor: true,
-                              paintCursorAboveText: true,
-                              enableSelectionToolbar: true,
-                              textSelectionControls: CustomTouchTextSelectionControls.instance,
+                          controller: _quillController,
+                          focusNode: _editorFocusNode,
+                          scrollController: _editorScrollController,
+                          config: QuillEditorConfig(
+                            enableInteractiveSelection: true,
+                            showCursor: true,
+                            paintCursorAboveText: true,
+                            enableSelectionToolbar: true,
+                            textSelectionControls: CustomTouchTextSelectionControls.instance,
                             contextMenuBuilder: (context, rawEditorState) {
                               final buttonItems = rawEditorState.contextMenuButtonItems;
                               return AdaptiveTextSelectionToolbar.buttonItems(
@@ -679,8 +679,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                       ),
                     ),
                   ),
-                  ),
                 ),
+              ),
                 // Custom Toolbar for Rich Text Styling & Line Spacing
                 CustomToolbar(
                   controller: _quillController,
