@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
-import '../services/link_service.dart';
 import 'divider_sheet.dart';
 
 class CustomToolbar extends StatefulWidget {
@@ -83,11 +82,6 @@ class _CustomToolbarState extends State<CustomToolbar> {
     final style = widget.controller.getSelectionStyle();
     final attr = style.attributes[Attribute.ol.key];
     return attr != null && attr.value == Attribute.ol.value;
-  }
-
-  bool get _isLink {
-    final style = widget.controller.getSelectionStyle();
-    return style.containsKey(Attribute.link.key);
   }
 
   String get _currentSize {
@@ -1195,22 +1189,7 @@ class _CustomToolbarState extends State<CustomToolbar> {
                     },
                   ),
 
-                  // 6. Tautan (Link) Button
-                  _buildToolbarButton(
-                    icon: Icons.link_rounded,
-                    isActive: _isLink,
-                    tooltip: _isLink ? 'Tautan Aktif (Ubah/Hapus)' : 'Sisipkan Tautan (Link)',
-                    onTap: () {
-                      setState(() {
-                        _showFormatMenu = false;
-                        _showListMenu = false;
-                        _showHistoryMenu = false;
-                      });
-                      LinkService.showEditLinkDialog(context, widget.controller);
-                    },
-                  ),
-
-                  // 7. Riwayat (Undo & Redo Gabungan)
+                  // 6. Riwayat (Undo & Redo Gabungan)
                   Tooltip(
                     message: 'Riwayat (Batal / Ulangi)',
                     child: InkWell(
