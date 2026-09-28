@@ -1081,7 +1081,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (result.action == PasswordManageAction.removed) {
           final updated = note.copyWith(
             isLocked: false,
-            password: '',
+            password: null,
           );
           await _storageService.saveOrUpdateNote(updated);
           await _loadData();

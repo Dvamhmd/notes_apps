@@ -185,6 +185,54 @@ void main() {
 
       expect(unlockResult, isTrue);
     });
+
+    testWidgets('PasswordDialog.showManagePassword allows removing password after verifying', (WidgetTester tester) async {
+      PasswordManageResult? manageResult;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (ctx) => ElevatedButton(
+                onPressed: () async {
+                  manageResult = await PasswordDialog.showManagePassword(
+                    ctx,
+                    title: 'Dokumen',
+                    itemType: 'Catatan',
+                    currentPassword: 'current_pass_123',
+                  );
+                },
+                child: const Text('Open Manage Password'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Open Manage Password'));
+      await tester.pumpAndSettle();
+
+      // Check sheet options
+      expect(find.text('Ubah Kata Sandi'), findsOneWidget);
+      expect(find.text('Hapus Kunci Kata Sandi'), findsOneWidget);
+
+      // Tap Hapus Kunci Kata Sandi
+      await tester.tap(find.text('Hapus Kunci Kata Sandi'));
+      await tester.pumpAndSettle();
+
+      // Unlock verification dialog should be shown
+      expect(find.text('Catatan Terkunci'), findsOneWidget);
+
+      // Enter correct password
+      final textField = find.byType(TextField);
+      await tester.enterText(textField, 'current_pass_123');
+      await tester.tap(find.text('Buka Kunci'));
+      await tester.pumpAndSettle();
+
+      expect(manageResult, isNotNull);
+      expect(manageResult!.action, PasswordManageAction.removed);
+    });
   });
 
   group('HomeScreen password lock integration test', () {
@@ -222,6 +270,60 @@ void main() {
 
       // Check option exists
       expect(find.text('Kunci Catatan (Password)'), findsOneWidget);
+    });
+
+    testWidgets('Removing password from locked note un-locks the note in HomeScreen', (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({
+        'is_app_initialized_v2': true,
+      });
+      final storage = StorageService();
+      final now = DateTime.now();
+      final lockedNote = NoteModel(
+        id: 'note_locked_1',
+        title: 'Rahasia Perusahaan',
+        contentJson: '[{"insert":"Data Confidential\\n"}]',
+        plainText: 'Data Confidential',
+        createdAt: now,
+        updatedAt: now,
+        isLocked: true,
+        password: 'mypassword',
+      );
+
+      await storage.saveNotes([lockedNote]);
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: HomeScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Note has lock badge and masked preview
+      expect(find.text('Terkunci'), findsOneWidget);
+      expect(find.text('Catatan ini dilindungi kata sandi'), findsOneWidget);
+
+      // Long press locked note
+      await tester.longPress(find.text('Rahasia Perusahaan'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Kelola Kata Sandi (Password)'), findsOneWidget);
+      await tester.tap(find.text('Kelola Kata Sandi (Password)'));
+      await tester.pumpAndSettle();
+
+      // Tap Hapus Kunci Kata Sandi
+      expect(find.text('Hapus Kunci Kata Sandi'), findsOneWidget);
+      await tester.tap(find.text('Hapus Kunci Kata Sandi'));
+      await tester.pumpAndSettle();
+
+      // Enter password in unlock dialog
+      final textField = find.byType(TextField).last;
+      await tester.enterText(textField, 'mypassword');
+      await tester.tap(find.text('Buka Kunci'));
+      await tester.pumpAndSettle();
+
+      // Now note is unlocked: no "Terkunci" badge, content preview is visible!
+      expect(find.text('Terkunci'), findsNothing);
+      expect(find.text('Data Confidential'), findsOneWidget);
     });
   });
 }

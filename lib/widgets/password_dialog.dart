@@ -55,9 +55,11 @@ class PasswordDialog {
     required String title,
     required String itemType,
     required String currentPassword,
-  }) {
-    return showModalBottomSheet<PasswordManageResult>(
+  }) async {
+    // 1. Show choices sheet: Ubah or Hapus
+    final choice = await showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -65,9 +67,42 @@ class PasswordDialog {
       builder: (ctx) => _ManagePasswordSheet(
         title: title,
         itemType: itemType,
-        currentPassword: currentPassword,
       ),
     );
+
+    if (choice == null || !context.mounted) return null;
+
+    // 2. Execute selected action
+    if (choice == 'remove') {
+      final verified = await showUnlock(
+        context,
+        title: title,
+        itemType: itemType,
+        correctPassword: currentPassword,
+      );
+      if (verified) {
+        return const PasswordManageResult(
+          action: PasswordManageAction.removed,
+        );
+      }
+    } else if (choice == 'change') {
+      final newPass = await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => _ChangePasswordDialog(
+          title: title,
+          itemType: itemType,
+          currentPassword: currentPassword,
+        ),
+      );
+      if (newPass != null) {
+        return PasswordManageResult(
+          action: PasswordManageAction.changed,
+          newPassword: newPass,
+        );
+      }
+    }
+    return null;
   }
 }
 
@@ -139,199 +174,201 @@ class _SetPasswordDialogState extends State<_SetPasswordDialog> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Icon badge
-            Center(
-              child: Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEEF2FF),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
-                    width: 2,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Icon badge
+              Center(
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
+                      width: 2,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.lock_outline_rounded,
+                    color: Color(0xFF4F46E5),
+                    size: 28,
                   ),
                 ),
-                child: const Icon(
-                  Icons.lock_outline_rounded,
-                  color: Color(0xFF4F46E5),
-                  size: 28,
+              ),
+              const SizedBox(height: 16),
+
+              // Title
+              Text(
+                'Kunci ${widget.itemType}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1E293B),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-
-            // Title
-            Text(
-              'Kunci ${widget.itemType}',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1E293B),
+              const SizedBox(height: 6),
+              Text(
+                'Tetapkan kata sandi untuk mengamankan data ${widget.itemType.toLowerCase()} "${widget.title.isEmpty ? widget.itemType : widget.title}".',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF64748B),
+                  height: 1.4,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Tetapkan kata sandi untuk mengamankan data ${widget.itemType.toLowerCase()} "${widget.title.isEmpty ? widget.itemType : widget.title}".',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF64748B),
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            // Input: Password
-            TextField(
-              controller: _passController,
-              autofocus: true,
-              obscureText: _obscurePass,
-              keyboardType: TextInputType.visiblePassword,
-              decoration: InputDecoration(
-                labelText: 'Kata Sandi Baru',
-                hintText: 'Minimal 4 karakter',
-                prefixIcon: const Icon(Icons.key_rounded, size: 20, color: Color(0xFF64748B)),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePass ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                    size: 20,
-                    color: const Color(0xFF64748B),
+              // Input: Password
+              TextField(
+                controller: _passController,
+                autofocus: true,
+                obscureText: _obscurePass,
+                keyboardType: TextInputType.visiblePassword,
+                decoration: InputDecoration(
+                  labelText: 'Kata Sandi Baru',
+                  hintText: 'Minimal 4 karakter',
+                  prefixIcon: const Icon(Icons.key_rounded, size: 20, color: Color(0xFF64748B)),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePass ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      size: 20,
+                      color: const Color(0xFF64748B),
+                    ),
+                    onPressed: () => setState(() => _obscurePass = !_obscurePass),
                   ),
-                  onPressed: () => setState(() => _obscurePass = !_obscurePass),
-                ),
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              ),
-              onChanged: (_) {
-                if (_errorMessage != null) setState(() => _errorMessage = null);
-              },
-            ),
-            const SizedBox(height: 12),
-
-            // Input: Confirm Password
-            TextField(
-              controller: _confirmController,
-              obscureText: _obscureConfirm,
-              keyboardType: TextInputType.visiblePassword,
-              decoration: InputDecoration(
-                labelText: 'Konfirmasi Kata Sandi',
-                hintText: 'Ulangi kata sandi baru',
-                prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20, color: Color(0xFF64748B)),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                    size: 20,
-                    color: const Color(0xFF64748B),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
                   ),
-                  onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                 ),
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                onChanged: (_) {
+                  if (_errorMessage != null) setState(() => _errorMessage = null);
+                },
               ),
-              onSubmitted: (_) => _submit(),
-              onChanged: (_) {
-                if (_errorMessage != null) setState(() => _errorMessage = null);
-              },
-            ),
+              const SizedBox(height: 12),
 
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 10),
+              // Input: Confirm Password
+              TextField(
+                controller: _confirmController,
+                obscureText: _obscureConfirm,
+                keyboardType: TextInputType.visiblePassword,
+                decoration: InputDecoration(
+                  labelText: 'Konfirmasi Kata Sandi',
+                  hintText: 'Ulangi kata sandi baru',
+                  prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20, color: Color(0xFF64748B)),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      size: 20,
+                      color: const Color(0xFF64748B),
+                    ),
+                    onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                ),
+                onSubmitted: (_) => _submit(),
+                onChanged: (_) {
+                  if (_errorMessage != null) setState(() => _errorMessage = null);
+                },
+              ),
+
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Icon(Icons.error_outline_rounded, size: 16, color: Color(0xFFEF4444)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFFEF4444),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              const SizedBox(height: 22),
+
+              // Buttons
               Row(
                 children: [
-                  const Icon(Icons.error_outline_rounded, size: 16, color: Color(0xFFEF4444)),
-                  const SizedBox(width: 6),
                   Expanded(
-                    child: Text(
-                      _errorMessage!,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFFEF4444),
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      ),
+                      child: const Text(
+                        'Batal',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _submit,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4F46E5),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text(
+                        'Pasang Password',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
             ],
-
-            const SizedBox(height: 22),
-
-            // Buttons
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      side: const BorderSide(color: Color(0xFFCBD5E1)),
-                    ),
-                    child: const Text(
-                      'Batal',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4F46E5),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text(
-                      'Pasang Password',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -397,160 +434,162 @@ class _UnlockPasswordDialogState extends State<_UnlockPasswordDialog> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Shield Lock Icon
-            Center(
-              child: Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF3C7),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
-                    width: 2,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Shield Lock Icon
+              Center(
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                      width: 2,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.lock_rounded,
+                    color: Color(0xFFD97706),
+                    size: 28,
                   ),
                 ),
-                child: const Icon(
-                  Icons.lock_rounded,
-                  color: Color(0xFFD97706),
-                  size: 28,
+              ),
+              const SizedBox(height: 16),
+
+              // Title
+              Text(
+                '${widget.itemType} Terkunci',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1E293B),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-
-            // Title
-            Text(
-              '${widget.itemType} Terkunci',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1E293B),
+              const SizedBox(height: 6),
+              Text(
+                'Masukkan kata sandi untuk membuka ${widget.itemType.toLowerCase()} "${widget.title.isEmpty ? widget.itemType : widget.title}".',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF64748B),
+                  height: 1.4,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Masukkan kata sandi untuk membuka ${widget.itemType.toLowerCase()} "${widget.title.isEmpty ? widget.itemType : widget.title}".',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF64748B),
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            // Input: Password
-            TextField(
-              controller: _passController,
-              autofocus: true,
-              obscureText: _obscurePass,
-              keyboardType: TextInputType.visiblePassword,
-              decoration: InputDecoration(
-                labelText: 'Kata Sandi',
-                hintText: 'Masukkan kata sandi',
-                prefixIcon: const Icon(Icons.key_rounded, size: 20, color: Color(0xFF64748B)),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePass ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                    size: 20,
-                    color: const Color(0xFF64748B),
+              // Input: Password
+              TextField(
+                controller: _passController,
+                autofocus: true,
+                obscureText: _obscurePass,
+                keyboardType: TextInputType.visiblePassword,
+                decoration: InputDecoration(
+                  labelText: 'Kata Sandi',
+                  hintText: 'Masukkan kata sandi',
+                  prefixIcon: const Icon(Icons.key_rounded, size: 20, color: Color(0xFF64748B)),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePass ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      size: 20,
+                      color: const Color(0xFF64748B),
+                    ),
+                    onPressed: () => setState(() => _obscurePass = !_obscurePass),
                   ),
-                  onPressed: () => setState(() => _obscurePass = !_obscurePass),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                 ),
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                onSubmitted: (_) => _verify(),
+                onChanged: (_) {
+                  if (_errorMessage != null) setState(() => _errorMessage = null);
+                },
               ),
-              onSubmitted: (_) => _verify(),
-              onChanged: (_) {
-                if (_errorMessage != null) setState(() => _errorMessage = null);
-              },
-            ),
 
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 10),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Icon(Icons.error_outline_rounded, size: 16, color: Color(0xFFEF4444)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFFEF4444),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              const SizedBox(height: 22),
+
+              // Buttons
               Row(
                 children: [
-                  const Icon(Icons.error_outline_rounded, size: 16, color: Color(0xFFEF4444)),
-                  const SizedBox(width: 6),
                   Expanded(
-                    child: Text(
-                      _errorMessage!,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFFEF4444),
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      ),
+                      child: const Text(
+                        'Batal',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _verify,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4F46E5),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text(
+                        'Buka Kunci',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
             ],
-
-            const SizedBox(height: 22),
-
-            // Buttons
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      side: const BorderSide(color: Color(0xFFCBD5E1)),
-                    ),
-                    child: const Text(
-                      'Batal',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _verify,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4F46E5),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text(
-                      'Buka Kunci',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -563,53 +602,11 @@ class _UnlockPasswordDialogState extends State<_UnlockPasswordDialog> {
 class _ManagePasswordSheet extends StatelessWidget {
   final String title;
   final String itemType;
-  final String currentPassword;
 
   const _ManagePasswordSheet({
     required this.title,
     required this.itemType,
-    required this.currentPassword,
   });
-
-  void _handleChangePassword(BuildContext context) async {
-    Navigator.of(context).pop(); // Close sheet
-
-    // Show change password dialog
-    final newPass = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => _ChangePasswordDialog(
-        title: title,
-        itemType: itemType,
-        currentPassword: currentPassword,
-      ),
-    );
-
-    if (newPass != null && context.mounted) {
-      Navigator.of(context).pop(PasswordManageResult(
-        action: PasswordManageAction.changed,
-        newPassword: newPass,
-      ));
-    }
-  }
-
-  void _handleRemovePassword(BuildContext context) async {
-    Navigator.of(context).pop(); // Close sheet
-
-    // Verify current password first
-    final verified = await PasswordDialog.showUnlock(
-      context,
-      title: title,
-      itemType: itemType,
-      correctPassword: currentPassword,
-    );
-
-    if (verified && context.mounted) {
-      Navigator.of(context).pop(const PasswordManageResult(
-        action: PasswordManageAction.removed,
-      ));
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -685,7 +682,7 @@ class _ManagePasswordSheet extends StatelessWidget {
                 'Ganti kata sandi dengan yang baru',
                 style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
               ),
-              onTap: () => _handleChangePassword(context),
+              onTap: () => Navigator.of(context).pop('change'),
             ),
             const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
 
@@ -700,7 +697,7 @@ class _ManagePasswordSheet extends StatelessWidget {
                 'Hapus perlindungan kata sandi dari item ini',
                 style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
               ),
-              onTap: () => _handleRemovePassword(context),
+              onTap: () => Navigator.of(context).pop('remove'),
             ),
           ],
         ),
