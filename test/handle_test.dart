@@ -249,15 +249,21 @@ void main() {
     expect(find.byKey(handleKey), findsNothing);
   });
 
-  testWidgets('Test CustomTouchTextSelectionControls returns correct size and anchor for collapsed handle', (WidgetTester tester) async {
+  testWidgets('Test CustomTouchTextSelectionControls returns correct size and anchor for all handle types', (WidgetTester tester) async {
     final controls = CustomTouchTextSelectionControls.instance;
     final size = controls.getHandleSize(20.0);
     expect(size.width, 28.0);
     expect(size.height, 30.0);
 
-    final anchor = controls.getHandleAnchor(TextSelectionHandleType.collapsed, 20.0);
-    expect(anchor.dx, 14.0);
-    expect(anchor.dy, 0.0);
+    for (final type in [
+      TextSelectionHandleType.left,
+      TextSelectionHandleType.right,
+      TextSelectionHandleType.collapsed,
+    ]) {
+      final anchor = controls.getHandleAnchor(type, 20.0);
+      expect(anchor.dx, 14.0);
+      expect(anchor.dy, 0.0);
+    }
   });
 
   testWidgets('Test NoteEditorScreen initializes with custom teardrop text selection controls', (WidgetTester tester) async {
@@ -287,8 +293,78 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
-
     expect(find.byType(QuillEditor), findsOneWidget);
   });
+
+  testWidgets('Test bullet list cursor offset and drag positioning', (WidgetTester tester) async {
+    final doc = Document.fromJson([
+      {"insert": "Fitur Navigasi Hirarki:\n"},
+      {"insert": "Buat folder di dalam folder (subfolder)."},
+      {"insert": "\n", "attributes": {"list": "bullet"}},
+      {"insert": "Navigasi mudah dengan jejak breadcrumb."},
+      {"insert": "\n", "attributes": {"list": "bullet"}},
+      {"insert": "Pindahkan catatan antar level folder."},
+      {"insert": "\n", "attributes": {"list": "bullet"}},
+      {"insert": "Kelola folder lewat menu titik 3 di pojok kanan atas."},
+      {"insert": "\n", "attributes": {"list": "bullet"}}
+    ]);
+    final totalLength = doc.length;
+    final controller = QuillController(
+      document: doc,
+      selection: TextSelection.collapsed(offset: totalLength - 1),
+    );
+    final focusNode = FocusNode();
+    final editorKey = GlobalKey<QuillEditorState>();
+    final scrollController = ScrollController();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(
+          textSelectionTheme: const TextSelectionThemeData(
+            selectionHandleColor: Color(0xFF4F46E5),
+          ),
+        ),
+        home: Scaffold(
+          body: QuillCursorHandleOverlay(
+            controller: controller,
+            focusNode: focusNode,
+            editorKey: editorKey,
+            scrollController: scrollController,
+            child: QuillEditor.basic(
+              key: editorKey,
+              controller: controller,
+              focusNode: focusNode,
+              scrollController: scrollController,
+              config: const QuillEditorConfig(
+                enableInteractiveSelection: true,
+                showCursor: true,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    focusNode.requestFocus();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    final rawEditorState = editorKey.currentState!.editableTextKey.currentState!;
+    final renderEditor = rawEditorState.renderEditor;
+    // Drag the handle from the end to line 3
+    final handleFinder = find.byKey(const Key('quill_cursor_teardrop_handle'));
+    expect(handleFinder, findsOneWidget);
+
+    // Initial selection is at the end (offset 196)
+    expect(controller.selection.baseOffset, totalLength - 1);
+
+    // Drag handle up and left to reach line 3
+    await tester.drag(handleFinder, const Offset(-40, -40));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(controller.selection.baseOffset < totalLength - 1, true);
+    expect(controller.selection.baseOffset >= 105, true);
+  });
 }
+
+

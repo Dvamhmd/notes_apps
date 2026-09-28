@@ -181,7 +181,9 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
     if (!selection.isCollapsed || selection.baseOffset < 0) return;
 
     try {
-      final caretRect = renderEditor.getLocalRectForCaret(selection.extent);
+      final int maxDocOffset = math.max(0, widget.controller.document.length - 1);
+      final int clampedOffset = selection.baseOffset.clamp(0, maxDocOffset);
+      final caretRect = renderEditor.getLocalRectForCaret(TextPosition(offset: clampedOffset));
       final caretGlobal = renderEditor.localToGlobal(
         Offset(caretRect.left + (caretRect.width / 2), caretRect.bottom),
       );
@@ -198,39 +200,63 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
     }
   }
 
+  List<_QuillLineInfo> _extractAllLines(dynamic parent, Offset parentOffset) {
+    final result = <_QuillLineInfo>[];
+    dynamic child = parent.firstChild;
+    while (child != null) {
+      final childOffset = (child.parentData as dynamic).offset as Offset;
+      final globalChildOffset = parentOffset + childOffset;
+      final isBlock = child.runtimeType.toString().contains('Block');
+      if (isBlock) {
+        result.addAll(_extractAllLines(child, globalChildOffset));
+      } else {
+        result.add(_QuillLineInfo(
+          line: child,
+          rect: globalChildOffset & (child.size as Size),
+          docOffset: (child.line?.documentOffset ?? child.line?.offset ?? 0) as int,
+        ));
+      }
+      child = parent.childAfter(child);
+    }
+    return result;
+  }
+
   TextPosition _getPositionForOffset(dynamic renderEditor, Offset localInEditor) {
     try {
-      dynamic current = renderEditor.firstChild;
-      dynamic closestChild;
-      double closestDistance = double.infinity;
+      final allLines = _extractAllLines(renderEditor, Offset.zero);
+      if (allLines.isEmpty) {
+        return renderEditor.getPositionForOffset(localInEditor);
+      }
 
-      while (current != null) {
-        final childOffset = (current.parentData as dynamic).offset as Offset;
-        final childSize = current.size as Size;
-        final childRect = childOffset & childSize;
+      _QuillLineInfo? closestLine;
+      double minDistance = double.infinity;
 
-        if (localInEditor.dy >= childRect.top && localInEditor.dy <= childRect.bottom) {
-          closestChild = current;
+      for (final lineInfo in allLines) {
+        final rect = lineInfo.rect;
+        if (localInEditor.dy >= rect.top && localInEditor.dy <= rect.bottom) {
+          closestLine = lineInfo;
           break;
         }
 
-        final dist = (localInEditor.dy < childRect.top)
-            ? (childRect.top - localInEditor.dy)
-            : (localInEditor.dy - childRect.bottom);
-        if (dist < closestDistance) {
-          closestDistance = dist;
-          closestChild = current;
+        final dist = (localInEditor.dy < rect.top)
+            ? (rect.top - localInEditor.dy)
+            : (localInEditor.dy - rect.bottom);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestLine = lineInfo;
         }
-
-        current = renderEditor.childAfter(current);
       }
 
-      if (closestChild != null) {
-        final childOffset = (closestChild.parentData as dynamic).offset as Offset;
-        final childLocal = localInEditor - childOffset;
-        final TextPosition childPos = closestChild.getPositionForOffset(childLocal);
-        final int lineStart = (closestChild.line?.documentOffset ?? closestChild.line?.offset ?? 0) as int;
-        return TextPosition(offset: lineStart + childPos.offset, affinity: childPos.affinity);
+      if (closestLine != null) {
+        final lineLocal = Offset(
+          localInEditor.dx - closestLine.rect.left,
+          (localInEditor.dy - closestLine.rect.top).clamp(0.0, closestLine.rect.height),
+        );
+        final TextPosition childPos = closestLine.line.getPositionForOffset(lineLocal);
+        return TextPosition(
+          offset: closestLine.docOffset + childPos.offset,
+          affinity: childPos.affinity,
+        );
       }
     } catch (_) {}
 
@@ -244,26 +270,7 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
     _isDragging = true;
     _fadeTimer?.cancel();
     _fadeController.value = 1.0;
-
-    final rawEditorState =
-        widget.editorKey.currentState?.editableTextKey.currentState;
-    if (rawEditorState != null) {
-      final renderEditor = rawEditorState.renderEditor;
-      final selection = widget.controller.selection;
-      if (selection.isCollapsed && selection.baseOffset >= 0) {
-        try {
-          final caretRect = renderEditor.getLocalRectForCaret(selection.extent);
-          final caretGlobal = renderEditor.localToGlobal(
-            Offset(caretRect.left + (caretRect.width / 2), caretRect.bottom),
-          );
-          _caretBottomPosition = caretGlobal;
-          _caretHeight = caretRect.height > 0 ? caretRect.height : 20.0;
-          _activeLineTop = caretRect.top;
-          _activeLineBottom = caretRect.bottom;
-          _activeLineCenterY = caretRect.top + (caretRect.height / 2);
-        } catch (_) {}
-      }
-    }
+    _updateCaretPosition();
 
     if (_caretBottomPosition != null) {
       _dragStartTouchOffset = details.globalPosition - _caretBottomPosition!;
@@ -309,20 +316,21 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
     );
 
     final resolvedPosition = _getPositionForOffset(renderEditor, safeTarget);
+    final int maxDocOffset = math.max(0, widget.controller.document.length - 1);
+    final int targetOffset = resolvedPosition.offset.clamp(0, maxDocOffset);
     final currentOffset = widget.controller.selection.baseOffset;
 
-    if (resolvedPosition.offset != currentOffset) {
+    if (targetOffset != currentOffset) {
       HapticFeedback.selectionClick();
       widget.controller.updateSelection(
-        TextSelection.collapsed(offset: resolvedPosition.offset),
+        TextSelection.collapsed(offset: targetOffset),
         ChangeSource.local,
       );
     }
 
     // Immediately re-sync line metrics & exact caret position with high fidelity
     try {
-      final currentSelection = widget.controller.selection;
-      final newCaretRect = renderEditor.getLocalRectForCaret(currentSelection.extent);
+      final newCaretRect = renderEditor.getLocalRectForCaret(TextPosition(offset: targetOffset));
       _activeLineTop = newCaretRect.top;
       _activeLineBottom = newCaretRect.bottom;
       _activeLineCenterY = newCaretRect.top + (newCaretRect.height / 2);
@@ -360,11 +368,13 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
 
   void _onPanEnd(DragEndDetails details) {
     _isDragging = false;
+    _updateCaretPosition();
     _restartFadeTimer();
   }
 
   void _onPanCancel() {
     _isDragging = false;
+    _updateCaretPosition();
     _restartFadeTimer();
   }
 
@@ -427,3 +437,16 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
     );
   }
 }
+
+class _QuillLineInfo {
+  final dynamic line;
+  final Rect rect;
+  final int docOffset;
+
+  const _QuillLineInfo({
+    required this.line,
+    required this.rect,
+    required this.docOffset,
+  });
+}
+
