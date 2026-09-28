@@ -49,6 +49,7 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
   double? _activeLineTop;
   double? _activeLineBottom;
   double? _activeLineCenterY;
+  int _lastDocLength = 0;
 
   @override
   void initState() {
@@ -62,6 +63,7 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
       curve: Curves.easeOutCubic,
     );
 
+    _lastDocLength = widget.controller.document.length;
     widget.controller.addListener(_onEditorChanged);
     widget.focusNode.addListener(_onFocusChanged);
     widget.scrollController?.addListener(_onScrollChanged);
@@ -80,6 +82,7 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_onEditorChanged);
       widget.controller.addListener(_onEditorChanged);
+      _lastDocLength = widget.controller.document.length;
     }
     if (oldWidget.focusNode != widget.focusNode) {
       oldWidget.focusNode.removeListener(_onFocusChanged);
@@ -111,14 +114,28 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
 
   void _onEditorChanged() {
     if (!mounted) return;
+    final currentDocLength = widget.controller.document.length;
+    final docChanged = currentDocLength != _lastDocLength;
+    _lastDocLength = currentDocLength;
+
+    if (docChanged) {
+      // User is typing or deleting text -> hide teardrop handle immediately
+      _hideHandleImmediate();
+      return;
+    }
+
     final selection = widget.controller.selection;
-    if (widget.focusNode.hasFocus && selection.isCollapsed && selection.baseOffset >= 0) {
-      if (!_isDragging) {
-        _showHandle();
-      }
-    } else if (!selection.isCollapsed) {
+    if (!selection.isCollapsed) {
       // Range selection active - hide collapsed handle
       _hideHandleImmediate();
+      return;
+    }
+
+    if (_isDragging) {
+      _updateCaretPosition();
+    } else if (_isVisible) {
+      _updateCaretPosition();
+      _restartFadeTimer();
     }
   }
 
@@ -427,9 +444,13 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
         );
       },
       child: Listener(
-        onPointerDown: (_) {
+        onPointerUp: (_) {
           if (widget.focusNode.hasFocus) {
-            _showHandle();
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && widget.focusNode.hasFocus) {
+                _showHandle();
+              }
+            });
           }
         },
         child: widget.child,

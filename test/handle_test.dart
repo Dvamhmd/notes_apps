@@ -363,6 +363,65 @@ void main() {
     expect(controller.selection.baseOffset < totalLength - 1, true);
     expect(controller.selection.baseOffset >= 105, true);
   });
+
+  testWidgets('Test QuillCursorHandleOverlay hides during typing and shows on tap', (WidgetTester tester) async {
+    final doc = Document()..insert(0, 'Halo dunia');
+    final controller = QuillController(
+      document: doc,
+      selection: const TextSelection.collapsed(offset: 4),
+    );
+    final focusNode = FocusNode();
+    final editorKey = GlobalKey<QuillEditorState>();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: QuillCursorHandleOverlay(
+            controller: controller,
+            focusNode: focusNode,
+            editorKey: editorKey,
+            child: QuillEditor.basic(
+              key: editorKey,
+              controller: controller,
+              focusNode: focusNode,
+              config: const QuillEditorConfig(
+                enableInteractiveSelection: true,
+                showCursor: true,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 1. Initial tap on editor shows handle
+    await tester.tap(find.byKey(editorKey));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(find.byKey(const Key('quill_cursor_teardrop_handle')), findsOneWidget);
+
+    // 2. Typing text into document immediately hides teardrop handle
+    controller.replaceText(4, 0, ' teks baru', null);
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    // Verify handle is hidden / not visible while typing
+    final opacityFinder = find.descendant(
+      of: find.byKey(const Key('quill_cursor_teardrop_handle')),
+      matching: find.byType(CustomPaint),
+    );
+    // Overlay is dismissed or faded out
+    expect(opacityFinder, findsNothing);
+
+    // 3. Tapping cursor / editor again shows handle
+    await tester.tap(find.byKey(editorKey));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.byKey(const Key('quill_cursor_teardrop_handle')), findsOneWidget);
+  });
 }
+
 
 
