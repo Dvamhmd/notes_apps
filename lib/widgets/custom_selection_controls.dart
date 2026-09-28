@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -105,77 +104,67 @@ class TeardropHandlePainter extends CustomPainter {
     final double h = size.height;
 
     if (type == TextSelectionHandleType.left) {
-      // Left handle: Circle hanging down-left, with top-right corner pointing up at (w, 0)
-      const double radius = 13.0;
-      path.moveTo(w, 0);
-      path.lineTo(w, h - radius);
+      // Left handle: Smooth teardrop hanging down-left, pointing up-right at (w, 0)
+      const double radius = 12.0;
+      path.moveTo(w, 0.5);
+      path.cubicTo(w - 1.5, 3.0, w, h - radius * 2, w - radius, h - radius * 2);
+      path.arcToPoint(
+        Offset(w - radius * 2, h - radius),
+        radius: const Radius.circular(radius),
+        clockwise: false,
+      );
       path.arcToPoint(
         Offset(w - radius, h),
         radius: const Radius.circular(radius),
-        clockwise: true,
+        clockwise: false,
       );
-      path.lineTo(radius, h);
-      path.arcToPoint(
-        const Offset(0, radius),
-        radius: const Radius.circular(radius),
-        clockwise: true,
-      );
-      path.arcToPoint(
-        Offset(w - radius, 0),
-        radius: const Radius.circular(radius),
-        clockwise: true,
-      );
-      path.lineTo(w, 0);
+      path.lineTo(w, h - radius);
+      path.lineTo(w, 0.5);
       path.close();
     } else if (type == TextSelectionHandleType.right) {
-      // Right handle: Circle hanging down-right, with top-left corner pointing up at (0, 0)
-      const double radius = 13.0;
-      path.moveTo(0, 0);
-      path.lineTo(radius, 0);
+      // Right handle: Smooth teardrop hanging down-right, pointing up-left at (0, 0)
+      const double radius = 12.0;
+      path.moveTo(0, 0.5);
+      path.cubicTo(1.5, 3.0, 0, h - radius * 2, radius, h - radius * 2);
       path.arcToPoint(
-        Offset(w, radius),
+        Offset(radius * 2, h - radius),
         radius: const Radius.circular(radius),
         clockwise: true,
       );
       path.arcToPoint(
-        Offset(w - radius, h),
+        Offset(radius, h),
         radius: const Radius.circular(radius),
         clockwise: true,
       );
-      path.lineTo(radius, h);
-      path.arcToPoint(
-        Offset(0, h - radius),
-        radius: const Radius.circular(radius),
-        clockwise: true,
-      );
-      path.lineTo(0, 0);
+      path.lineTo(0, h - radius);
+      path.lineTo(0, 0.5);
       path.close();
     } else if (type == TextSelectionHandleType.collapsed) {
-      // Collapsed cursor handle: Symmetrical teardrop pointing straight UP at (cx, 0)
-      // Tangent to bottom circle bulb
+      // Collapsed cursor handle: Pure elegant organic teardrop pointing straight UP at (cx, 0)
       final double cx = w / 2;
-      const double r = 10.0;
-      const double cy = 16.0;
+      const double r = 9.5;
+      const double cy = 18.0;
 
-      // sin(theta) = r / cy
-      final double sinTheta = r / cy;
-      final double cosTheta = math.sqrt(1.0 - sinTheta * sinTheta);
-
-      final double tx = r * cosTheta;
-      final double ty = cy - (r * sinTheta);
-
-      path.moveTo(cx, 0.0);
-      path.lineTo(cx + tx, ty);
+      path.moveTo(cx, 0.5);
+      path.cubicTo(
+        cx + 2.0, 4.5,
+        cx + r, cy - 6.0,
+        cx + r, cy,
+      );
       path.arcToPoint(
-        Offset(cx - tx, ty),
+        Offset(cx - r, cy),
         radius: const Radius.circular(r),
         clockwise: true,
       );
-      path.lineTo(cx, 0.0);
+      path.cubicTo(
+        cx - r, cy - 6.0,
+        cx - 2.0, 4.5,
+        cx, 0.5,
+      );
       path.close();
     }
 
-    // Draw drop shadow for clear visibility over any text/background
+    // Draw smooth drop shadow for high contrast & clarity on any background
     canvas.drawPath(path.shift(const Offset(0, 1.5)), shadowPaint);
     canvas.drawPath(path, paint);
   }

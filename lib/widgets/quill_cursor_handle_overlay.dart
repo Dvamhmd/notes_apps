@@ -42,6 +42,7 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
   bool _isVisible = false;
   Offset? _caretBottomPosition;
   double _caretHeight = 20.0;
+  Offset _dragStartTouchOffset = Offset.zero;
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
@@ -192,6 +193,11 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
     _isDragging = true;
     _fadeTimer?.cancel();
     _fadeController.value = 1.0;
+    if (_caretBottomPosition != null) {
+      _dragStartTouchOffset = details.globalPosition - _caretBottomPosition!;
+    } else {
+      _dragStartTouchOffset = const Offset(0.0, 20.0);
+    }
     HapticFeedback.selectionClick();
   }
 
@@ -202,13 +208,22 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
 
     final renderEditor = rawEditorState.renderEditor;
 
-    // Convert touch global position to renderEditor local coordinates
-    // Aim ~18px above bottom teardrop to correspond to text baseline
-    final touchInEditor = renderEditor.globalToLocal(
-      details.globalPosition.translate(0, -(_caretHeight * 0.9)),
+    // Track the target caret point smoothly based on initial grab offset
+    final targetCaretGlobal = details.globalPosition - _dragStartTouchOffset;
+    // Aim for the vertical center of the text line
+    final targetPointInGlobal = targetCaretGlobal.translate(0, -(_caretHeight * 0.5));
+
+    final targetInEditor = renderEditor.globalToLocal(targetPointInGlobal);
+
+    // Safeguard clamping so coordinates never drop below 0 (preventing jump to top offset 0)
+    final double maxW = math.max(0.0, renderEditor.size.width);
+    final double maxH = math.max(0.0, renderEditor.size.height - 1.0);
+    final safeTarget = Offset(
+      targetInEditor.dx.clamp(0.0, maxW),
+      targetInEditor.dy.clamp(0.0, maxH),
     );
 
-    final resolvedPosition = renderEditor.getPositionForOffset(touchInEditor);
+    final resolvedPosition = renderEditor.getPositionForOffset(safeTarget);
     final currentOffset = widget.controller.selection.baseOffset;
 
     if (resolvedPosition.offset != currentOffset) {
@@ -222,18 +237,21 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
     // Auto-scroll vertically if dragged near top/bottom viewport edge
     final scrollCtrl = widget.scrollController;
     if (scrollCtrl != null && scrollCtrl.hasClients) {
-      final localTouchInEditor = renderEditor.globalToLocal(details.globalPosition);
-      const edgeThreshold = 50.0;
-      final viewportHeight = renderEditor.size.height;
+      final editorBox = widget.editorKey.currentContext?.findRenderObject() as RenderBox?;
+      if (editorBox != null && editorBox.hasSize) {
+        final localTouchInViewport = editorBox.globalToLocal(details.globalPosition);
+        const edgeThreshold = 48.0;
+        final viewportHeight = editorBox.size.height;
 
-      if (localTouchInEditor.dy < edgeThreshold) {
-        final speed = math.max(2.0, (edgeThreshold - localTouchInEditor.dy) / 2);
-        scrollCtrl.jumpTo(math.max(0.0, scrollCtrl.offset - speed));
-      } else if (localTouchInEditor.dy > viewportHeight - edgeThreshold) {
-        final speed = math.max(2.0, (localTouchInEditor.dy - (viewportHeight - edgeThreshold)) / 2);
-        scrollCtrl.jumpTo(
-          math.min(scrollCtrl.position.maxScrollExtent, scrollCtrl.offset + speed),
-        );
+        if (localTouchInViewport.dy < edgeThreshold) {
+          final speed = math.max(2.0, (edgeThreshold - localTouchInViewport.dy) / 2);
+          scrollCtrl.jumpTo(math.max(0.0, scrollCtrl.offset - speed));
+        } else if (localTouchInViewport.dy > viewportHeight - edgeThreshold) {
+          final speed = math.max(2.0, (localTouchInViewport.dy - (viewportHeight - edgeThreshold)) / 2);
+          scrollCtrl.jumpTo(
+            math.min(scrollCtrl.position.maxScrollExtent, scrollCtrl.offset + speed),
+          );
+        }
       }
     }
 
