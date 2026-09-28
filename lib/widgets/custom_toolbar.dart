@@ -74,12 +74,14 @@ class _CustomToolbarState extends State<CustomToolbar> {
 
   bool get _isBullet {
     final style = widget.controller.getSelectionStyle();
-    return style.containsKey(Attribute.ul.key);
+    final attr = style.attributes[Attribute.ul.key];
+    return attr != null && attr.value == Attribute.ul.value;
   }
 
   bool get _isNumber {
     final style = widget.controller.getSelectionStyle();
-    return style.containsKey(Attribute.ol.key);
+    final attr = style.attributes[Attribute.ol.key];
+    return attr != null && attr.value == Attribute.ol.value;
   }
 
   String get _currentSize {

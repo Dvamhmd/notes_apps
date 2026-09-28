@@ -442,6 +442,55 @@ void main() {
     // Floating bar is closed
     expect(find.text('Batal (Undo)'), findsNothing);
   });
+
+  testWidgets('Test Bullet and Numbering buttons in CustomToolbar toggle independently without interfering', (WidgetTester tester) async {
+    final doc = Document()..insert(0, 'Contoh catatan teks\n');
+    final controller = QuillController(
+      document: doc,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          bottomNavigationBar: CustomToolbar(
+            controller: controller,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 1. Initially neither is active
+    expect(controller.getSelectionStyle().attributes[Attribute.ul.key], isNull);
+
+    // 2. Open list menu
+    final listMenuTrigger = find.byTooltip('Daftar (Poin / Angka)');
+    expect(listMenuTrigger, findsOneWidget);
+    await tester.tap(listMenuTrigger);
+    await tester.pumpAndSettle();
+
+    final poinOption = find.text('Poin');
+    final angkaOption = find.text('Angka');
+    expect(poinOption, findsOneWidget);
+    expect(angkaOption, findsOneWidget);
+
+    // 3. Tap Poin -> Only bullet should be active, NOT number
+    await tester.tap(poinOption);
+    await tester.pumpAndSettle();
+
+    final bulletAttr = controller.getSelectionStyle().attributes[Attribute.ul.key];
+    expect(bulletAttr, isNotNull);
+    expect(bulletAttr!.value, 'bullet');
+
+    // 4. Tap Angka -> Only numbering should be active, NOT bullet
+    await tester.tap(angkaOption);
+    await tester.pumpAndSettle();
+
+    final numberAttr = controller.getSelectionStyle().attributes[Attribute.ol.key];
+    expect(numberAttr, isNotNull);
+    expect(numberAttr!.value, 'ordered');
+  });
 }
 
 
