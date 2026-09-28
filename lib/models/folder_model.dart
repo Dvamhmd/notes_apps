@@ -9,6 +9,8 @@ class FolderModel {
   final bool isPinned;
   final int accessCount;
   final DateTime? lastAccessedAt;
+  final bool isLocked;
+  final String? password;
 
   FolderModel({
     required this.id,
@@ -19,6 +21,8 @@ class FolderModel {
     this.isPinned = false,
     this.accessCount = 0,
     this.lastAccessedAt,
+    this.isLocked = false,
+    this.password,
   });
 
   Map<String, dynamic> toMap() {
@@ -31,10 +35,14 @@ class FolderModel {
       'isPinned': isPinned,
       'accessCount': accessCount,
       'lastAccessedAt': lastAccessedAt?.toIso8601String(),
+      'isLocked': isLocked,
+      'password': password,
     };
   }
 
   factory FolderModel.fromMap(Map<String, dynamic> map) {
+    final pass = map['password'] as String?;
+    final locked = map['isLocked'] == true || (pass != null && pass.isNotEmpty);
     return FolderModel(
       id: map['id'] ?? '',
       name: map['name'] ?? '',
@@ -48,6 +56,8 @@ class FolderModel {
       lastAccessedAt: map['lastAccessedAt'] != null
           ? DateTime.tryParse(map['lastAccessedAt'])
           : null,
+      isLocked: locked,
+      password: pass,
     );
   }
 
@@ -66,6 +76,9 @@ class FolderModel {
     bool? isPinned,
     int? accessCount,
     DateTime? lastAccessedAt,
+    bool? isLocked,
+    String? password,
+    bool clearPassword = false,
   }) {
     return FolderModel(
       id: id ?? this.id,
@@ -76,7 +89,10 @@ class FolderModel {
       isPinned: isPinned ?? this.isPinned,
       accessCount: accessCount ?? this.accessCount,
       lastAccessedAt: lastAccessedAt ?? this.lastAccessedAt,
+      isLocked: isLocked ?? this.isLocked,
+      password: clearPassword ? null : (password ?? this.password),
     );
   }
 }
+
 

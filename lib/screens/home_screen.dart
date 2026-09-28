@@ -13,6 +13,7 @@ import '../widgets/create_folder_dialog.dart';
 import '../widgets/create_note_dialog.dart';
 import '../widgets/move_note_dialog.dart';
 import '../widgets/note_card.dart';
+import '../widgets/password_dialog.dart';
 import '../widgets/search_filter_sheet.dart';
 import '../widgets/sort_bottom_sheet.dart';
 import 'folder_manage_screen.dart';
@@ -334,10 +335,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _isNavigatingForward = true;
 
-  void _navigateToFolder(String? folderId) {
+  void _navigateToFolder(String? folderId) async {
     if (folderId != null) {
       final target = _getFolderById(folderId);
       if (target != null) {
+        // If target folder is locked and we're entering it, verify password
+        if (target.id != _currentFolderId && target.isLocked && target.password != null && target.password!.isNotEmpty) {
+          final unlocked = await PasswordDialog.showUnlock(
+            context,
+            title: target.name,
+            itemType: 'Folder',
+            correctPassword: target.password!,
+          );
+          if (!unlocked || !mounted) return;
+        }
+
         final updated = target.copyWith(
           accessCount: target.accessCount + 1,
           lastAccessedAt: DateTime.now(),
@@ -440,7 +452,20 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _openNoteEditor(NoteModel note) {
+  void _openNoteEditor(NoteModel note) async {
+    if (note.isLocked && note.password != null && note.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: note.title,
+        itemType: 'Catatan',
+        correctPassword: note.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+    _openNoteEditorDirect(note);
+  }
+
+  void _openNoteEditorDirect(NoteModel note) {
     _storageService.recordNoteAccess(note.id);
     Navigator.of(context).push(
       PageRouteBuilder(
@@ -717,128 +742,145 @@ class _HomeScreenState extends State<HomeScreen> {
     final folder = _getFolderById(note.folderId);
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFCBD5E1),
-                      borderRadius: BorderRadius.circular(2),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFCBD5E1),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEEF2FF),
-                        borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEEF2FF),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.description_rounded,
+                          color: Color(0xFF4F46E5),
+                          size: 22,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.description_rounded,
-                        color: Color(0xFF4F46E5),
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            note.title.isEmpty ? 'Tanpa Judul' : note.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1E293B),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              note.title.isEmpty ? 'Tanpa Judul' : note.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1E293B),
+                              ),
                             ),
-                          ),
-                          Text(
-                            folder != null
-                                ? 'Folder: ${folder.name}'
-                                : 'Folder: Tanpa Folder (Utama)',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF94A3B8),
+                            Text(
+                              folder != null
+                                  ? 'Folder: ${folder.name}'
+                                  : 'Folder: Tanpa Folder (Utama)',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF94A3B8),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
 
-                // Option 0: Multi-Select Mode
-                _buildBottomSheetActionTile(
-                  label: 'Pilih Banyak Item',
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _enterSelectionModeWithNote(note.id);
-                  },
-                ),
-                const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
+                  // Option 0: Multi-Select Mode
+                  _buildBottomSheetActionTile(
+                    label: 'Pilih Banyak Item',
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _enterSelectionModeWithNote(note.id);
+                    },
+                  ),
+                  const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
 
-                // Option 1: Pin / Unpin
-                _buildBottomSheetActionTile(
-                  label: note.isPinned
-                      ? 'Lepas Sematan (Unpin)'
-                      : 'Sematkan Catatan (Pin)',
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _togglePin(note);
-                  },
-                ),
-                const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
+                  // Option 1: Pin / Unpin
+                  _buildBottomSheetActionTile(
+                    label: note.isPinned
+                        ? 'Lepas Sematan (Unpin)'
+                        : 'Sematkan Catatan (Pin)',
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _togglePin(note);
+                    },
+                  ),
+                  const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
 
-                // Option 2: Rename
-                _buildBottomSheetActionTile(
-                  label: 'Ganti Judul Catatan',
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _showRenameNoteDialog(note);
-                  },
-                ),
-                const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
+                  // Option 2: Rename
+                  _buildBottomSheetActionTile(
+                    label: 'Ganti Judul Catatan',
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _showRenameNoteDialog(note);
+                    },
+                  ),
+                  const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
 
-                // Option 3: Move
-                _buildBottomSheetActionTile(
-                  label: 'Pindahkan Folder',
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _moveNote(note);
-                  },
-                ),
-                const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
+                  // Option 3: Move
+                  _buildBottomSheetActionTile(
+                    label: 'Pindahkan Folder',
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _moveNote(note);
+                    },
+                  ),
+                  const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
 
-                // Option 4: Delete
-                _buildBottomSheetActionTile(
-                  label: 'Hapus Catatan',
-                  textColor: const Color(0xFFEF4444),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _confirmDeleteNote(note);
-                  },
-                ),
-              ],
+                  // Option: Password / Kunci Catatan
+                  _buildBottomSheetActionTile(
+                    label: note.isLocked
+                        ? 'Kelola Kata Sandi (Password)'
+                        : 'Kunci Catatan (Password)',
+                    icon: note.isLocked ? Icons.lock_rounded : Icons.lock_outline_rounded,
+                    iconColor: note.isLocked ? const Color(0xFFD97706) : const Color(0xFF4F46E5),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _handleLockNote(note);
+                    },
+                  ),
+                  const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
+
+                  // Option 4: Delete
+                  _buildBottomSheetActionTile(
+                    label: 'Hapus Catatan',
+                    textColor: const Color(0xFFEF4444),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _confirmDeleteNote(note);
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -853,15 +895,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-            child: Column(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Center(
@@ -894,15 +938,29 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            folder.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1E293B),
-                            ),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  folder.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1E293B),
+                                  ),
+                                ),
+                              ),
+                              if (folder.isLocked) ...[
+                                const SizedBox(width: 6),
+                                const Icon(
+                                  Icons.lock_rounded,
+                                  size: 15,
+                                  color: Color(0xFFD97706),
+                                ),
+                              ],
+                            ],
                           ),
                           Text(
                             '$noteCount catatan • $subfolderCount subfolder',
@@ -959,6 +1017,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
 
+                // Option: Password / Kunci Folder
+                _buildBottomSheetActionTile(
+                  label: folder.isLocked
+                      ? 'Kelola Kata Sandi (Password)'
+                      : 'Kunci Folder (Password)',
+                  icon: folder.isLocked ? Icons.lock_rounded : Icons.lock_outline_rounded,
+                  iconColor: folder.isLocked ? const Color(0xFFD97706) : const Color(0xFF4F46E5),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _handleLockFolder(folder);
+                  },
+                ),
+                const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
+
                 // Option 3: Delete Folder
                 _buildBottomSheetActionTile(
                   label: 'Hapus Folder',
@@ -971,13 +1043,132 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+        ),
+      );
+    },
+  );
+}
+
+  void _handleLockNote(NoteModel note) async {
+    if (!note.isLocked || note.password == null || note.password!.isEmpty) {
+      final newPass = await PasswordDialog.showSetPassword(
+        context,
+        title: note.title,
+        itemType: 'Catatan',
+      );
+      if (newPass != null && mounted) {
+        final updated = note.copyWith(
+          isLocked: true,
+          password: newPass,
         );
-      },
-    );
+        await _storageService.saveOrUpdateNote(updated);
+        await _loadData();
+        _showToast(
+          'Catatan berhasil dikunci dengan kata sandi',
+          icon: Icons.lock_rounded,
+          iconColor: const Color(0xFF10B981),
+        );
+      }
+    } else {
+      final result = await PasswordDialog.showManagePassword(
+        context,
+        title: note.title,
+        itemType: 'Catatan',
+        currentPassword: note.password!,
+      );
+
+      if (result != null && mounted) {
+        if (result.action == PasswordManageAction.removed) {
+          final updated = note.copyWith(
+            isLocked: false,
+            password: '',
+          );
+          await _storageService.saveOrUpdateNote(updated);
+          await _loadData();
+          _showToast(
+            'Kunci catatan berhasil dihapus',
+            icon: Icons.lock_open_rounded,
+            iconColor: const Color(0xFF10B981),
+          );
+        } else if (result.action == PasswordManageAction.changed && result.newPassword != null) {
+          final updated = note.copyWith(
+            isLocked: true,
+            password: result.newPassword,
+          );
+          await _storageService.saveOrUpdateNote(updated);
+          await _loadData();
+          _showToast(
+            'Kata sandi catatan berhasil diubah',
+            icon: Icons.check_circle_outline_rounded,
+            iconColor: const Color(0xFF10B981),
+          );
+        }
+      }
+    }
+  }
+
+  void _handleLockFolder(FolderModel folder) async {
+    if (!folder.isLocked || folder.password == null || folder.password!.isEmpty) {
+      final newPass = await PasswordDialog.showSetPassword(
+        context,
+        title: folder.name,
+        itemType: 'Folder',
+      );
+      if (newPass != null && mounted) {
+        final updated = folder.copyWith(
+          isLocked: true,
+          password: newPass,
+        );
+        await _storageService.updateFolder(updated);
+        await _loadData();
+        _showToast(
+          'Folder "${folder.name}" berhasil dikunci dengan kata sandi',
+          icon: Icons.lock_rounded,
+          iconColor: const Color(0xFF10B981),
+        );
+      }
+    } else {
+      final result = await PasswordDialog.showManagePassword(
+        context,
+        title: folder.name,
+        itemType: 'Folder',
+        currentPassword: folder.password!,
+      );
+
+      if (result != null && mounted) {
+        if (result.action == PasswordManageAction.removed) {
+          final updated = folder.copyWith(
+            isLocked: false,
+            clearPassword: true,
+          );
+          await _storageService.updateFolder(updated);
+          await _loadData();
+          _showToast(
+            'Kunci folder "${folder.name}" berhasil dihapus',
+            icon: Icons.lock_open_rounded,
+            iconColor: const Color(0xFF10B981),
+          );
+        } else if (result.action == PasswordManageAction.changed && result.newPassword != null) {
+          final updated = folder.copyWith(
+            isLocked: true,
+            password: result.newPassword,
+          );
+          await _storageService.updateFolder(updated);
+          await _loadData();
+          _showToast(
+            'Kata sandi folder "${folder.name}" berhasil diubah',
+            icon: Icons.check_circle_outline_rounded,
+            iconColor: const Color(0xFF10B981),
+          );
+        }
+      }
+    }
   }
 
   Widget _buildBottomSheetActionTile({
     required String label,
+    IconData? icon,
+    Color? iconColor,
     Color textColor = const Color(0xFF1E293B),
     required VoidCallback onTap,
   }) {
@@ -986,6 +1177,9 @@ class _HomeScreenState extends State<HomeScreen> {
       dense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      leading: icon != null
+          ? Icon(icon, size: 20, color: iconColor ?? textColor)
+          : null,
       title: Text(
         label,
         style: TextStyle(
@@ -3519,6 +3713,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                             ),
+                            if (folder.isLocked) ...[
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.lock_rounded,
+                                size: 12,
+                                color: Color(0xFFD97706),
+                              ),
+                            ],
                             if (folder.isPinned) ...[
                               const SizedBox(width: 4),
                               Transform.rotate(
@@ -3759,7 +3961,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 folder: folder,
                 folderPath: folderPathStr,
                 onTap: () => _openNoteEditor(note),
-                onLongPress: () => _enterSelectionModeWithNote(note.id),
+                onLongPress: () {
+                  HapticFeedback.mediumImpact();
+                  _showNoteOptions(note);
+                },
               ),
             );
           }),
@@ -3808,7 +4013,10 @@ class _HomeScreenState extends State<HomeScreen> {
               : () => _navigateToFolder(folder.id),
           onLongPress: _isSelectionMode
               ? () => _toggleFolderSelection(folder.id)
-              : () => _enterSelectionModeWithFolder(folder.id),
+              : () {
+                  HapticFeedback.mediumImpact();
+                  _showFolderOptions(folder);
+                },
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
@@ -3870,6 +4078,14 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                           ),
+                          if (folder.isLocked) ...[
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.lock_rounded,
+                              size: 13,
+                              color: Color(0xFFD97706),
+                            ),
+                          ],
                           if (folder.isPinned) ...[
                             const SizedBox(width: 4),
                             Transform.rotate(

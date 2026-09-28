@@ -12,6 +12,8 @@ class NoteModel {
   double? lineSpacing;
   int accessCount;
   DateTime? lastAccessedAt;
+  bool isLocked;
+  String? password;
 
   NoteModel({
     required this.id,
@@ -25,6 +27,8 @@ class NoteModel {
     this.lineSpacing,
     this.accessCount = 0,
     this.lastAccessedAt,
+    this.isLocked = false,
+    this.password,
   });
 
   Map<String, dynamic> toMap() {
@@ -40,10 +44,14 @@ class NoteModel {
       'lineSpacing': lineSpacing,
       'accessCount': accessCount,
       'lastAccessedAt': lastAccessedAt?.toIso8601String(),
+      'isLocked': isLocked,
+      'password': password,
     };
   }
 
   factory NoteModel.fromMap(Map<String, dynamic> map) {
+    final pass = map['password'] as String?;
+    final locked = map['isLocked'] == true || (pass != null && pass.isNotEmpty);
     return NoteModel(
       id: map['id'] ?? '',
       title: map['title'] ?? '',
@@ -62,6 +70,8 @@ class NoteModel {
       lastAccessedAt: map['lastAccessedAt'] != null
           ? DateTime.tryParse(map['lastAccessedAt'])
           : null,
+      isLocked: locked,
+      password: pass,
     );
   }
 
@@ -84,6 +94,8 @@ class NoteModel {
     Object? lineSpacing = _sentinel,
     int? accessCount,
     DateTime? lastAccessedAt,
+    bool? isLocked,
+    Object? password = _sentinel,
   }) {
     return NoteModel(
       id: id ?? this.id,
@@ -101,6 +113,10 @@ class NoteModel {
           : lineSpacing as double?,
       accessCount: accessCount ?? this.accessCount,
       lastAccessedAt: lastAccessedAt ?? this.lastAccessedAt,
+      isLocked: isLocked ?? this.isLocked,
+      password: identical(password, _sentinel)
+          ? this.password
+          : password as String?,
     );
   }
 }

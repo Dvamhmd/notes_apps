@@ -4,6 +4,7 @@ import '../models/note_model.dart';
 import '../services/storage_service.dart';
 import '../utils/folder_utils.dart';
 import '../widgets/create_folder_dialog.dart';
+import '../widgets/password_dialog.dart';
 import 'home_screen.dart';
 
 class FolderManageScreen extends StatefulWidget {
@@ -64,7 +65,21 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
     }
   }
 
-  void _openFolder(String? folderId) {
+  void _openFolder(String? folderId) async {
+    if (folderId != null) {
+      final folder = _folders.where((f) => f.id == folderId).firstOrNull;
+      if (folder != null && folder.isLocked && folder.password != null && folder.password!.isNotEmpty) {
+        final unlocked = await PasswordDialog.showUnlock(
+          context,
+          title: folder.name,
+          itemType: 'Folder',
+          correctPassword: folder.password!,
+        );
+        if (!unlocked || !mounted) return;
+      }
+    }
+
+    if (!mounted) return;
     Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (ctx, animation, secondaryAnimation) => RepaintBoundary(
@@ -92,6 +107,65 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
     ).then((_) {
       _loadData();
     });
+  }
+
+  void _handleLockFolder(FolderModel folder) async {
+    final storageService = StorageService();
+    if (!folder.isLocked || folder.password == null || folder.password!.isEmpty) {
+      final newPass = await PasswordDialog.showSetPassword(
+        context,
+        title: folder.name,
+        itemType: 'Folder',
+      );
+      if (newPass != null && mounted) {
+        final updated = folder.copyWith(
+          isLocked: true,
+          password: newPass,
+        );
+        await storageService.updateFolder(updated);
+        await _loadData();
+        _showToast(
+          'Folder "${folder.name}" berhasil dikunci dengan kata sandi',
+          icon: Icons.lock_rounded,
+          iconColor: const Color(0xFF10B981),
+        );
+      }
+    } else {
+      final result = await PasswordDialog.showManagePassword(
+        context,
+        title: folder.name,
+        itemType: 'Folder',
+        currentPassword: folder.password!,
+      );
+
+      if (result != null && mounted) {
+        if (result.action == PasswordManageAction.removed) {
+          final updated = folder.copyWith(
+            isLocked: false,
+            clearPassword: true,
+          );
+          await storageService.updateFolder(updated);
+          await _loadData();
+          _showToast(
+            'Kunci folder "${folder.name}" berhasil dihapus',
+            icon: Icons.lock_open_rounded,
+            iconColor: const Color(0xFF10B981),
+          );
+        } else if (result.action == PasswordManageAction.changed && result.newPassword != null) {
+          final updated = folder.copyWith(
+            isLocked: true,
+            password: result.newPassword,
+          );
+          await storageService.updateFolder(updated);
+          await _loadData();
+          _showToast(
+            'Kata sandi folder "${folder.name}" berhasil diubah',
+            icon: Icons.check_circle_outline_rounded,
+            iconColor: const Color(0xFF10B981),
+          );
+        }
+      }
+    }
   }
 
   int _getDirectNoteCount(String? folderId) {
@@ -655,6 +729,14 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
                                           ),
                                         ),
                                       ),
+                                      if (folder.isLocked) ...[
+                                        const SizedBox(width: 6),
+                                        const Icon(
+                                          Icons.lock_rounded,
+                                          size: 13,
+                                          color: Color(0xFFD97706),
+                                        ),
+                                      ],
                                       if (folder.isPinned) ...[
                                         const SizedBox(width: 6),
                                         Transform.rotate(
@@ -703,6 +785,20 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
                               ),
                             ),
                           ),
+                        ),
+                        // Lock / Unlock button
+                        IconButton(
+                          icon: Icon(
+                            folder.isLocked
+                                ? Icons.lock_rounded
+                                : Icons.lock_outline_rounded,
+                            color: folder.isLocked
+                                ? const Color(0xFFD97706)
+                                : const Color(0xFF94A3B8),
+                            size: 19,
+                          ),
+                          tooltip: folder.isLocked ? 'Kelola Kata Sandi Folder' : 'Kunci Folder dengan Kata Sandi',
+                          onPressed: () => _handleLockFolder(folder),
                         ),
                         // Pin / Unpin button
                         IconButton(
