@@ -17,6 +17,7 @@ import '../widgets/password_dialog.dart';
 import '../widgets/search_filter_sheet.dart';
 import '../widgets/sort_bottom_sheet.dart';
 import 'folder_manage_screen.dart';
+import 'note_manage_screen.dart';
 import 'note_editor_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -551,6 +552,41 @@ class _HomeScreenState extends State<HomeScreen> {
               if (_currentFolderId == id) {
                 _currentFolderId = null;
               }
+              _loadData();
+            },
+          ),
+        ),
+        transitionsBuilder: (ctx, animation, secondaryAnimation, child) {
+          final curve = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+          return FadeTransition(
+            opacity: curve,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.04, 0),
+                end: Offset.zero,
+              ).animate(curve),
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 200),
+        reverseTransitionDuration: const Duration(milliseconds: 180),
+      ),
+    ).then((_) => _loadData());
+  }
+
+  void _openManageNotes({String? folderId}) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (ctx, animation, secondaryAnimation) => RepaintBoundary(
+          child: NoteManageScreen(
+            notes: _allNotes,
+            folders: _folders,
+            initialFolderId: folderId,
+            onNoteSaved: (updated) {
+              _loadData();
+            },
+            onNoteDeleted: (id) {
               _loadData();
             },
           ),
@@ -2157,6 +2193,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     onSelected: (val) {
                       if (val == 'manage_folders') {
                         _openManageFolders();
+                      } else if (val == 'manage_notes') {
+                        _openManageNotes(folderId: _currentFolderId);
                       } else if (val == 'create_folder') {
                         _showCreateFolderDialog();
                       } else if (val == 'create_note') {
@@ -2273,6 +2311,34 @@ class _HomeScreenState extends State<HomeScreen> {
                             const SizedBox(width: 12),
                             const Text(
                               'Catatan Baru',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'manage_notes',
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.description_outlined,
+                                size: 18,
+                                color: Color(0xFF475569),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Kelola Catatan',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
@@ -3266,6 +3332,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final notes = _currentNotes;
     final isRoot = _currentFolderId == null;
     final displayedFolders = isRoot ? subfolders.take(4).toList() : subfolders;
+    final displayedNotes = notes.take(4).toList();
 
     if (subfolders.isEmpty && notes.isEmpty) {
       return _buildEmptyState();
@@ -3377,31 +3444,24 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             InkWell(
-              onTap: _showSortBottomSheet,
+              onTap: () => _openManageNotes(folderId: _currentFolderId),
               borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      _sortOption.icon,
-                      size: 13,
-                      color: const Color(0xFF4F46E5),
-                    ),
-                    const SizedBox(width: 4),
                     Text(
-                      _sortOption.label,
-                      style: const TextStyle(
-                        fontSize: 11,
+                      'Lihat Semua',
+                      style: TextStyle(
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF4F46E5),
                       ),
                     ),
-                    const SizedBox(width: 2),
-                    const Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 14,
+                    SizedBox(width: 4),
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 11,
                       color: Color(0xFF4F46E5),
                     ),
                   ],
@@ -3451,7 +3511,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           )
         else
-          ...notes.map((note) {
+          ...displayedNotes.map((note) {
             final folder = _getFolderById(note.folderId);
             final isSelected = _selectedNoteIds.contains(note.id);
 
