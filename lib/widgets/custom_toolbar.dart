@@ -99,6 +99,27 @@ class _CustomToolbarState extends State<CustomToolbar> {
     return 'Normal';
   }
 
+  double get _currentFontSizeValue {
+    final style = widget.controller.getSelectionStyle();
+    final sizeAttr = style.attributes[Attribute.size.key];
+    if (sizeAttr != null && sizeAttr.value != null) {
+      final v = sizeAttr.value.toString().toLowerCase();
+      if (v == 'small') return 12.0;
+      if (v == 'normal') return 16.0;
+      if (v == 'large') return 20.0;
+      if (v == 'huge') return 26.0;
+      final parsed = double.tryParse(v);
+      if (parsed != null && parsed > 0) return parsed;
+    }
+    final headerAttr = style.attributes[Attribute.header.key];
+    if (headerAttr != null) {
+      if (headerAttr.value == 1) return 24.0;
+      if (headerAttr.value == 2) return 20.0;
+      if (headerAttr.value == 3) return 17.0;
+    }
+    return 16.0;
+  }
+
   Color get _currentColor {
     final style = widget.controller.getSelectionStyle();
     final colorAttr = style.attributes[Attribute.color.key];
@@ -165,6 +186,14 @@ class _CustomToolbarState extends State<CustomToolbar> {
   }
 
   void _showFontSizeAndSpacingDialog() {
+    final double initialFontSize = _currentFontSizeValue;
+    final TextEditingController sizeInputController = TextEditingController(
+      text: initialFontSize == initialFontSize.roundToDouble()
+          ? initialFontSize.round().toString()
+          : initialFontSize.toString(),
+    );
+    double currentFontSize = initialFontSize;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -184,252 +213,542 @@ class _CustomToolbarState extends State<CustomToolbar> {
                         ? 'Renggang / Jauh'
                         : 'Sangat Jauh'));
 
+            void applyCustomSize(double size, {bool updateText = true}) {
+              final clamped = size.clamp(6.0, 96.0);
+              setSheetState(() {
+                currentFontSize = clamped;
+                if (updateText) {
+                  final textVal = clamped == clamped.roundToDouble()
+                      ? clamped.round().toString()
+                      : clamped.toStringAsFixed(1);
+                  sizeInputController.text = textVal;
+                  sizeInputController.selection = TextSelection.fromPosition(
+                    TextPosition(offset: sizeInputController.text.length),
+                  );
+                }
+              });
+
+              final int rounded = clamped.round();
+              final String valStr = (clamped == rounded.toDouble())
+                  ? '$rounded'
+                  : clamped.toString();
+
+              widget.controller.formatSelection(
+                Attribute.clone(Attribute.header, null),
+              );
+              widget.controller.formatSelection(
+                Attribute.clone(Attribute.size, valStr),
+              );
+            }
+
             return SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFCBD5E1),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // ==========================================
-                    // 1. OPSI PENGATURAN LINE SPACING DIATAS UKURAN TEKS
-                    // ==========================================
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.format_line_spacing_rounded,
-                              size: 20,
-                              color: Color(0xFF4F46E5),
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Jarak Antar Baris',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF1E293B),
-                              ),
-                            ),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom,
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEEF2FF),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: const Color(0xFFC7D2FE),
-                            ),
-                          ),
-                          child: Text(
-                            '${currentSpacing.toStringAsFixed(2)}x ($spacingDesc)',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF4F46E5),
-                            ),
+                            color: const Color(0xFFCBD5E1),
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Preset Chips (Rapat, Standar, Renggang, Lebar)
-                    Row(
-                      children: [
-                        _buildSpacingPreset(
-                          label: 'Rapat',
-                          desc: '1.25x',
-                          value: 1.25,
-                          current: currentSpacing,
-                          onTap: (val) {
-                            setSheetState(() => currentSpacing = val);
-                            _applyLineSpacing(val);
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        _buildSpacingPreset(
-                          label: 'Standar',
-                          desc: '1.60x',
-                          value: 1.60,
-                          current: currentSpacing,
-                          onTap: (val) {
-                            setSheetState(() => currentSpacing = val);
-                            _applyLineSpacing(val);
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        _buildSpacingPreset(
-                          label: 'Renggang',
-                          desc: '2.00x',
-                          value: 2.00,
-                          current: currentSpacing,
-                          onTap: (val) {
-                            setSheetState(() => currentSpacing = val);
-                            _applyLineSpacing(val);
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        _buildSpacingPreset(
-                          label: 'Lebar',
-                          desc: '2.40x',
-                          value: 2.40,
-                          current: currentSpacing,
-                          onTap: (val) {
-                            setSheetState(() => currentSpacing = val);
-                            _applyLineSpacing(val);
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-
-                    // Slider Line Spacing
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
-                      child: Column(
+                      const SizedBox(height: 16),
+
+                      // ==========================================
+                      // 1. OPSI PENGATURAN LINE SPACING DIATAS UKURAN TEKS
+                      // ==========================================
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'Dekat (1.0x)',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF64748B),
-                                ),
+                              Icon(
+                                Icons.format_line_spacing_rounded,
+                                size: 20,
+                                color: Color(0xFF4F46E5),
                               ),
+                              SizedBox(width: 8),
                               Text(
-                                'Jauh (2.8x)',
+                                'Jarak Antar Baris',
                                 style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF64748B),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1E293B),
                                 ),
                               ),
                             ],
                           ),
-                          SliderTheme(
-                            data: SliderTheme.of(context).copyWith(
-                              activeTrackColor: const Color(0xFF4F46E5),
-                              inactiveTrackColor: const Color(0xFFCBD5E1),
-                              thumbColor: const Color(0xFF4F46E5),
-                              trackHeight: 3.5,
-                              thumbShape: const RoundSliderThumbShape(
-                                enabledThumbRadius: 8,
-                              ),
-                              overlayShape: const RoundSliderOverlayShape(
-                                overlayRadius: 16,
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEEF2FF),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: const Color(0xFFC7D2FE),
                               ),
                             ),
-                            child: Slider(
-                              value: currentSpacing,
-                              min: 1.0,
-                              max: 2.8,
-                              divisions: 36,
-                              onChanged: (val) {
-                                setSheetState(() => currentSpacing = val);
-                                _applyLineSpacing(val);
+                            child: Text(
+                              '${currentSpacing.toStringAsFixed(2)}x ($spacingDesc)',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF4F46E5),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Preset Chips (Rapat, Standar, Renggang, Lebar)
+                      Row(
+                        children: [
+                          _buildSpacingPreset(
+                            label: 'Rapat',
+                            desc: '1.25x',
+                            value: 1.25,
+                            current: currentSpacing,
+                            onTap: (val) {
+                              setSheetState(() => currentSpacing = val);
+                              _applyLineSpacing(val);
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          _buildSpacingPreset(
+                            label: 'Standar',
+                            desc: '1.60x',
+                            value: 1.60,
+                            current: currentSpacing,
+                            onTap: (val) {
+                              setSheetState(() => currentSpacing = val);
+                              _applyLineSpacing(val);
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          _buildSpacingPreset(
+                            label: 'Renggang',
+                            desc: '2.00x',
+                            value: 2.00,
+                            current: currentSpacing,
+                            onTap: (val) {
+                              setSheetState(() => currentSpacing = val);
+                              _applyLineSpacing(val);
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          _buildSpacingPreset(
+                            label: 'Lebar',
+                            desc: '2.40x',
+                            value: 2.40,
+                            current: currentSpacing,
+                            onTap: (val) {
+                              setSheetState(() => currentSpacing = val);
+                              _applyLineSpacing(val);
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Slider Line Spacing
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          children: [
+                            const Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Dekat (1.0x)',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                                Text(
+                                  'Jauh (2.8x)',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SliderTheme(
+                              data: SliderTheme.of(context).copyWith(
+                                activeTrackColor: const Color(0xFF4F46E5),
+                                inactiveTrackColor: const Color(0xFFCBD5E1),
+                                thumbColor: const Color(0xFF4F46E5),
+                                trackHeight: 3.5,
+                                thumbShape: const RoundSliderThumbShape(
+                                  enabledThumbRadius: 8,
+                                ),
+                                overlayShape: const RoundSliderOverlayShape(
+                                  overlayRadius: 16,
+                                ),
+                              ),
+                              child: Slider(
+                                value: currentSpacing,
+                                min: 1.0,
+                                max: 2.8,
+                                divisions: 36,
+                                onChanged: (val) {
+                                  setSheetState(() => currentSpacing = val);
+                                  _applyLineSpacing(val);
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+                      const Divider(color: Color(0xFFE2E8F0), height: 1),
+                      const SizedBox(height: 16),
+
+                      // ==========================================
+                      // 2. OPSI-OPSI UKURAN TEKS (MANUAL & REKOMENDASI)
+                      // ==========================================
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.format_size_rounded,
+                                size: 20,
+                                color: Color(0xFF4F46E5),
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Ukuran Teks',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1E293B),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEEF2FF),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: const Color(0xFFC7D2FE),
+                              ),
+                            ),
+                            child: Text(
+                              '${currentFontSize == currentFontSize.roundToDouble() ? currentFontSize.round() : currentFontSize.toStringAsFixed(1)} pt',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF4F46E5),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // --- Input Manual & Stepper Row ---
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Input Manual',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF334155),
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Ketik ukuran bebas (6 - 96 pt)',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Color(0xFF94A3B8),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Spacer(),
+
+                            // Stepper Decrement (-)
+                            Material(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              child: InkWell(
+                                onTap: () {
+                                  final double current = double.tryParse(sizeInputController.text) ?? currentFontSize;
+                                  final double newVal = (current - 1).clamp(6.0, 96.0);
+                                  applyCustomSize(newVal);
+                                },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.remove_rounded,
+                                    size: 18,
+                                    color: Color(0xFF475569),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+
+                            // TextField Input Manual
+                            Container(
+                              width: 60,
+                              height: 34,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFF4F46E5), width: 1.5),
+                              ),
+                              child: TextField(
+                                controller: sizeInputController,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1E293B),
+                                ),
+                                decoration: const InputDecoration(
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                                  border: InputBorder.none,
+                                  hintText: '16',
+                                ),
+                                onChanged: (val) {
+                                  final parsed = double.tryParse(val.trim());
+                                  if (parsed != null && parsed >= 6 && parsed <= 96) {
+                                    applyCustomSize(parsed, updateText: false);
+                                  }
+                                },
+                                onSubmitted: (val) {
+                                  final parsed = double.tryParse(val.trim());
+                                  if (parsed != null) {
+                                    applyCustomSize(parsed.clamp(6.0, 96.0));
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+
+                            // Stepper Increment (+)
+                            Material(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              child: InkWell(
+                                onTap: () {
+                                  final double current = double.tryParse(sizeInputController.text) ?? currentFontSize;
+                                  final double newVal = (current + 1).clamp(6.0, 96.0);
+                                  applyCustomSize(newVal);
+                                },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.add_rounded,
+                                    size: 18,
+                                    color: Color(0xFF475569),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // --- Rekomendasi Pilihan Cepat (Presets) ---
+                      const Text(
+                        'Rekomendasi Ukuran',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _buildFontSizeChip(
+                            label: '10 pt',
+                            desc: 'Kecil Sekali',
+                            sizeValue: 10.0,
+                            currentSize: currentFontSize,
+                            onTap: () => applyCustomSize(10.0),
+                          ),
+                          _buildFontSizeChip(
+                            label: '12 pt',
+                            desc: 'Kecil',
+                            sizeValue: 12.0,
+                            currentSize: currentFontSize,
+                            onTap: () => applyCustomSize(12.0),
+                          ),
+                          _buildFontSizeChip(
+                            label: '14 pt',
+                            desc: 'Sedang',
+                            sizeValue: 14.0,
+                            currentSize: currentFontSize,
+                            onTap: () => applyCustomSize(14.0),
+                          ),
+                          _buildFontSizeChip(
+                            label: '16 pt',
+                            desc: 'Normal',
+                            sizeValue: 16.0,
+                            currentSize: currentFontSize,
+                            onTap: () => applyCustomSize(16.0),
+                          ),
+                          _buildFontSizeChip(
+                            label: '18 pt',
+                            desc: 'Medium',
+                            sizeValue: 18.0,
+                            currentSize: currentFontSize,
+                            onTap: () => applyCustomSize(18.0),
+                          ),
+                          _buildFontSizeChip(
+                            label: '20 pt',
+                            desc: 'Besar',
+                            sizeValue: 20.0,
+                            currentSize: currentFontSize,
+                            onTap: () => applyCustomSize(20.0),
+                          ),
+                          _buildFontSizeChip(
+                            label: '24 pt',
+                            desc: 'Judul (H1)',
+                            sizeValue: 24.0,
+                            currentSize: currentFontSize,
+                            onTap: () => applyCustomSize(24.0),
+                          ),
+                          _buildFontSizeChip(
+                            label: '28 pt',
+                            desc: 'Sangat Besar',
+                            sizeValue: 28.0,
+                            currentSize: currentFontSize,
+                            onTap: () => applyCustomSize(28.0),
+                          ),
+                          _buildFontSizeChip(
+                            label: '32 pt',
+                            desc: 'Jumbo',
+                            sizeValue: 32.0,
+                            currentSize: currentFontSize,
+                            onTap: () => applyCustomSize(32.0),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // --- Format Gaya Heading ---
+                      const Text(
+                        'Format Gaya Teks',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildHeadingButton(
+                              label: 'Normal',
+                              isActive: _currentSize == 'Normal' && (currentFontSize - 16).abs() < 1,
+                              onTap: () {
+                                widget.controller.formatSelection(
+                                  Attribute.clone(Attribute.size, null),
+                                );
+                                widget.controller.formatSelection(
+                                  Attribute.clone(Attribute.header, null),
+                                );
+                                applyCustomSize(16.0);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildHeadingButton(
+                              label: 'Judul 1 (H1)',
+                              isActive: _currentSize == 'Judul 1' || currentFontSize == 24.0,
+                              onTap: () {
+                                widget.controller.formatSelection(
+                                  Attribute.clone(Attribute.size, null),
+                                );
+                                widget.controller.formatSelection(Attribute.h1);
+                                applyCustomSize(24.0);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildHeadingButton(
+                              label: 'Judul 2 (H2)',
+                              isActive: _currentSize == 'Judul 2' || currentFontSize == 20.0,
+                              onTap: () {
+                                widget.controller.formatSelection(
+                                  Attribute.clone(Attribute.size, null),
+                                );
+                                widget.controller.formatSelection(Attribute.h2);
+                                applyCustomSize(20.0);
                               },
                             ),
                           ),
                         ],
                       ),
-                    ),
-
-                    const SizedBox(height: 16),
-                    const Divider(color: Color(0xFFE2E8F0), height: 1),
-                    const SizedBox(height: 16),
-
-                    // ==========================================
-                    // 2. OPSI-OPSI UKURAN TEKS
-                    // ==========================================
-                    const Row(
-                      children: [
-                        Icon(
-                          Icons.format_size_rounded,
-                          size: 20,
-                          color: Color(0xFF4F46E5),
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'Ukuran Teks & Gaya',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF1E293B),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    _buildSizeOption('Kecil (12pt)', '12', () {
-                      widget.controller.formatSelection(
-                        Attribute.clone(Attribute.size, '12'),
-                      );
-                      Navigator.pop(ctx);
-                    }),
-                    _buildSizeOption('Normal (16pt)', 'normal', () {
-                      widget.controller.formatSelection(
-                        Attribute.clone(Attribute.size, null),
-                      );
-                      widget.controller.formatSelection(
-                        Attribute.clone(Attribute.header, null),
-                      );
-                      Navigator.pop(ctx);
-                    }),
-                    _buildSizeOption('Besar (20pt)', '20', () {
-                      widget.controller.formatSelection(
-                        Attribute.clone(Attribute.size, '20'),
-                      );
-                      Navigator.pop(ctx);
-                    }),
-                    _buildSizeOption('Sangat Besar (26pt)', '26', () {
-                      widget.controller.formatSelection(
-                        Attribute.clone(Attribute.size, '26'),
-                      );
-                      Navigator.pop(ctx);
-                    }),
-                    _buildSizeOption('Judul Utama (H1)', 'h1', () {
-                      widget.controller.formatSelection(
-                        Attribute.clone(Attribute.size, null),
-                      );
-                      widget.controller.formatSelection(Attribute.h1);
-                      Navigator.pop(ctx);
-                    }),
-                    _buildSizeOption('Sub-Judul (H2)', 'h2', () {
-                      widget.controller.formatSelection(
-                        Attribute.clone(Attribute.size, null),
-                      );
-                      widget.controller.formatSelection(Attribute.h2);
-                      Navigator.pop(ctx);
-                    }),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );
@@ -490,30 +809,88 @@ class _CustomToolbarState extends State<CustomToolbar> {
     );
   }
 
-  Widget _buildSizeOption(String label, String value, VoidCallback onTap) {
-    final isSelected = (_currentSize == 'Normal' && value == 'normal') ||
-        (_currentSize == '12' && value == '12') ||
-        (_currentSize == '20' && value == '20') ||
-        (_currentSize == '26' && value == '26') ||
-        (_currentSize == 'Judul 1' && value == 'h1') ||
-        (_currentSize == 'Judul 2' && value == 'h2');
-
-    return ListTile(
-      dense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      title: Text(
-        label,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-          color: isSelected ? const Color(0xFF4F46E5) : const Color(0xFF1E293B),
+  Widget _buildFontSizeChip({
+    required String label,
+    required String desc,
+    required double sizeValue,
+    required double currentSize,
+    required VoidCallback onTap,
+  }) {
+    final isSelected = (currentSize - sizeValue).abs() < 0.5;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF4F46E5) : const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? const Color(0xFF4F46E5) : const Color(0xFFE2E8F0),
+              width: isSelected ? 1.5 : 1,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: isSelected ? Colors.white : const Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                desc,
+                style: TextStyle(
+                  fontSize: 9,
+                  color: isSelected
+                      ? Colors.white.withValues(alpha: 0.85)
+                      : const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-      trailing: isSelected
-          ? const Icon(Icons.check_rounded, size: 18, color: Color(0xFF4F46E5))
-          : null,
-      onTap: onTap,
+    );
+  }
+
+  Widget _buildHeadingButton({
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isActive ? const Color(0xFFEEF2FF) : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isActive ? const Color(0xFF4F46E5) : const Color(0xFFE2E8F0),
+              width: isActive ? 1.5 : 1,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
+              color: isActive ? const Color(0xFF4F46E5) : const Color(0xFF475569),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
