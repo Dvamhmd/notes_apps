@@ -379,7 +379,7 @@ class IqResultScreen extends StatelessWidget {
 
   Widget _buildBellCurveIndicator(IqClassification classification) {
     final double normalizedPosition =
-        ((result.iqScore - 70) / 80.0).clamp(0.0, 1.0);
+        ((result.iqScore - 70) / 60.0).clamp(0.0, 1.0);
 
     return Container(
       padding: const EdgeInsets.all(20),

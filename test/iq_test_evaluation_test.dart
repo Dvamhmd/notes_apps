@@ -51,7 +51,7 @@ void main() {
       expect(result.unansweredCount, equals(0));
       expect(result.accuracyPercent, equals(100.0));
       expect(result.iqScore, greaterThanOrEqualTo(140));
-      expect(result.classification.rankBadge, contains('Genius'));
+      expect(result.classification.rankBadge, contains('Sangat Superior'));
     });
 
     test('Jawaban rata-rata (50% benar) harus menghasilkan skor IQ normal (~100)', () {

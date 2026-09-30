@@ -569,6 +569,9 @@ class IqDiagramWidget extends StatelessWidget {
   }
 
   Widget _buildPaperFoldVisual() {
+    final title = diagramData?['title'] as String? ?? 'Lipatan Kertas Simetris';
+    final steps = diagramData?['steps'] as String? ?? 'Lipat 1 (Horisontal) ➔ Lipat 2 (Vertikal) ➔ Buat 1 Lubang Tembus';
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -576,25 +579,25 @@ class IqDiagramWidget extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFCBD5E1)),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.content_cut_rounded, color: Color(0xFFEC4899), size: 32),
-          SizedBox(width: 12),
+          const Icon(Icons.content_cut_rounded, color: Color(0xFFEC4899), size: 32),
+          const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Lipatan Kertas Simetris',
-                style: TextStyle(
+                title,
+                style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: Color(0xFF1E293B),
                 ),
               ),
               Text(
-                'Lipat 1 (Horisontal) ➔ Lipat 2 (Vertikal) ➔ Buat 1 Lubang',
-                style: TextStyle(
+                steps,
+                style: const TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w500,
                   color: Color(0xFF64748B),

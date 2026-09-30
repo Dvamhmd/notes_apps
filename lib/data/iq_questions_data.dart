@@ -30,7 +30,12 @@ class IqQuestionsData {
 
   /// Default questions list untuk fallback atau review cepat
   static List<IqQuestion> getQuestions() {
-    return getAllQuestionsPool().take(25).toList();
+    final all = getAllQuestionsPool();
+    final List<IqQuestion> selected = [];
+    for (final cat in IqCategory.values) {
+      selected.addAll(all.where((q) => q.category == cat).take(5));
+    }
+    return selected;
   }
 
   /// Pool Bank Soal Lengkap: 100% Netral Budaya (Culture-Fair), Bebas Hafalan Pengetahuan Khusus, Menguji Nalar Murni.
@@ -266,23 +271,24 @@ class IqQuestionsData {
       const IqQuestion(
         id: 'fl_12',
         category: IqCategory.fluidLogic,
-        questionText: 'Perhatikan matriks logika orientasi sudut berikut. Tentukan simbol pengisi tanda tanya (?):',
+        questionText: 'Perhatikan matriks logika kombinasi garis 3×3 berikut. Tentukan simbol yang tepat untuk mengisi tanda tanya (?):',
         diagramType: DiagramType.ravenMatrix3x3,
         diagramData: {
-          'title': 'Matriks Pertemuan Garis Bersudut',
+          'title': 'Matriks Eliminasi Garis (Logika XOR)',
           'grid': [
-            ['|', '—', '∟'],
-            ['—', '|', '┌'],
-            ['|', '|', '?'],
+            ['+', '|', '—'],
+            ['X', '/', '\\'],
+            ['✱', '+', '?'],
           ],
         },
-        options: ['||', '—', 'T', 'X', '+'],
-        correctOptionIndex: 0, // ||
+        options: ['X', '—', '|', '✱', '#'],
+        correctOptionIndex: 0, // X
         difficulty: 3,
-        explanation: 'Pola keteraturan baris:\n'
-            '• Baris 1: Garis vertikal (|) dan horisontal (—) membentuk sudut siku bawah (∟)\n'
-            '• Baris 2: Garis horisontal (—) dan vertikal (|) membentuk sudut siku atas (┌)\n'
-            '• Baris 3: Dua garis vertikal sejajar (| dan |) jika digabungkan tetap menghasilkan dua garis sejajar (||).',
+        explanation: 'Pola keteraturan setiap baris menggunakan kaidah eliminasi garis beririsan (Logika XOR / Pengurangan Garis):\n'
+            'Garis yang sama pada Kolom 1 dan Kolom 2 dihilangkan, dan garis yang tersisa membentuk Kolom 3:\n'
+            '• Baris 1: Tanda tambah (+) dikurangi garis vertikal (|) menyisakan garis horisontal (—)\n'
+            '• Baris 2: Tanda silang (X) dikurangi garis miring kanan (/) menyisakan garis miring kiri (\\)\n'
+            '• Baris 3: Simbol bintang 8-arah (✱ = + dan X) dikurangi tanda tambah (+) menyisakan tanda silang (X).',
       ),
       const IqQuestion(
         id: 'fl_13',
@@ -427,9 +433,9 @@ class IqQuestionsData {
       const IqQuestion(
         id: 'sp_5',
         category: IqCategory.spatialVisual,
-        questionText: 'Jika sebuah huruf "L" dicerminkan secara vertikal (terhadap sumbu horisontal di bawahnya), bagaimana bentuk hasil bayangannya?',
+        questionText: 'Jika sebuah huruf "L" dicerminkan terhadap cermin datar yang diletakkan mendatar di bawahnya (sumbu cermin horisontal), bagaimana bentuk hasil bayangannya?',
         options: [
-          'Huruf L terbalik ke bawah (seperti ⅃ terbalik)',
+          'Huruf L terbalik ke bawah (kaki vertikal mengarah ke bawah)',
           'Huruf L tetap sama persis',
           'Huruf J',
           'Garis lurus vertikal',
@@ -437,7 +443,7 @@ class IqQuestionsData {
         ],
         correctOptionIndex: 0,
         difficulty: 1,
-        explanation: 'Pencerminan terhadap sumbu bawah membalik arah vertikal sehingga garis mendatar tetap di bawah namun kaki vertikal mengarah ke bawah (inversi vertikal).',
+        explanation: 'Cermin mendatar (horisontal) di bawah objek membalik arah atas ↔ bawah (inversi vertikal), sehingga garis tegak pada huruf L mengarah ke bawah.',
       ),
       const IqQuestion(
         id: 'sp_6',
@@ -461,12 +467,19 @@ class IqQuestionsData {
       const IqQuestion(
         id: 'sp_7',
         category: IqCategory.spatialVisual,
-        questionText: 'Jika selembar kertas persegi dilipat tepat menjadi 2 bagian secara simetris horisontal, lalu dilipat lagi secara vertikal, dan dibuat 1 lubang di tengahnya, berapa total lubang yang terbentuk saat kertas dibuka kembali?',
+        questionText: 'Selembar kertas persegi dilipat tepat 2 kali secara simetris berturut-turut. Jika dibuat 1 lubang tembus di tengah lipatan, berapa banyak lubang yang terbentuk saat kertas dibuka kembali sepenuhnya?',
         diagramType: DiagramType.paperFoldVisual,
+        diagramData: {
+          'title': 'Lipatan Kertas 2 Kali',
+          'steps': 'Lipat 1 ➔ Lipat 2 ➔ Buat 1 Lubang Tembus di Tengah',
+        },
         options: ['1 lubang', '2 lubang', '3 lubang', '4 lubang', '8 lubang'],
         correctOptionIndex: 3, // 4 lubang
         difficulty: 2,
-        explanation: 'Setiap lipatan menggandakan lapisan kertas (2 × 2 = 4 lapisan). Satu lubang yang menembus 4 lapisan akan menghasilkan 4 lubang simetris saat dibuka penuh.',
+        explanation: 'Setiap lipatan simetris menggandakan lapisan kertas:\n'
+            '• Lipat 1 = 2 lapisan\n'
+            '• Lipat 2 = 4 lapisan (2 × 2 = 4).\n\n'
+            'Satu lubang tembus di tengah yang menembus 4 lapisan akan menghasilkan 4 lubang simetris saat kertas dibuka penuh.',
       ),
       const IqQuestion(
         id: 'sp_8',
@@ -500,13 +513,14 @@ class IqQuestionsData {
       const IqQuestion(
         id: 'sp_10',
         category: IqCategory.spatialVisual,
-        questionText: 'Sebuah bentuk panah menghadap ke TIMUR. Jika bentuk tersebut diputar 180° kemudian dicerminkan secara horisontal, ke arah mana panah tersebut menunjuk?',
+        questionText: 'Sebuah anak panah mula-mula menunjuk ke arah TIMUR (kanan). Jika anak panah tersebut diputar 180°, kemudian dicerminkan terhadap cermin tegak di sampingnya (sumbu cermin vertikal yang membalik kiri ↔ kanan), ke arah manakah anak panah tersebut menunjuk sekarang?',
         options: ['Timur', 'Barat', 'Utara', 'Selatan', 'Timur Laut'],
         correctOptionIndex: 0, // Timur
         difficulty: 2,
-        explanation: '• Menghadap Timur (0°)\n'
-            '• Diputar 180° → Menghadap Barat\n'
-            '• Dicerminkan horisontal (kiri ↔ kanan) → Membalik kembali ke Timur.',
+        explanation: 'Langkah transformasi:\n'
+            '1. Posisi awal: Menunjuk ke Timur (kanan / →)\n'
+            '2. Diputar 180°: Berbalik arah menjadi menunjuk ke Barat (kiri / ←)\n'
+            '3. Dicerminkan terhadap cermin tegak (vertikal): Refleksi kiri ↔ kanan membalikkan arah Barat kembali menjadi menunjuk ke TIMUR (kanan / →).',
       ),
       const IqQuestion(
         id: 'sp_11',
@@ -556,12 +570,20 @@ class IqQuestionsData {
       const IqQuestion(
         id: 'sp_14',
         category: IqCategory.spatialVisual,
-        questionText: 'Jika sebuah kertas persegi dilipat 3 kali secara diagonal berturut-turut lalu digunting salah satu sudut lancipnya, berapa total lubang simetris yang terbentuk saat dibuka penuh?',
+        questionText: 'Selembar kertas persegi dilipat secara simetris berturut-turut sebanyak 3 kali. Jika dibuat 1 lubang tembus di tengah bidang lipatan tersebut, berapa total lubang yang terlihat saat kertas dibuka kembali sepenuhnya?',
         diagramType: DiagramType.paperFoldVisual,
+        diagramData: {
+          'title': 'Lipatan Kertas 3 Kali',
+          'steps': 'Lipat 1 ➔ Lipat 2 ➔ Lipat 3 ➔ Buat 1 Lubang Tembus di Tengah',
+        },
         options: ['2 lubang', '4 lubang', '6 lubang', '8 lubang', '16 lubang'],
         correctOptionIndex: 3, // 8 lubang
         difficulty: 3,
-        explanation: 'Tiga kali lipatan berturut-turut menghasilkan 2³ = 8 lapisan kertas. Potongan tunggal pada lipatan akan menduplikasi 8 lubang simetris.',
+        explanation: 'Setiap lipatan simetris menggandakan lapisan kertas secara eksponensial (2³ = 8 lapisan):\n'
+            '• Lipat 1 = 2 lapisan\n'
+            '• Lipat 2 = 4 lapisan\n'
+            '• Lipat 3 = 8 lapisan.\n\n'
+            'Satu lubang tembus di tengah bidang lipatan akan menembus seluruh 8 lapisan kertas, sehingga saat kertas dibuka kembali secara utuh akan terbentuk tepat 8 lubang simetris.',
       ),
       const IqQuestion(
         id: 'sp_15',
