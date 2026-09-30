@@ -582,7 +582,74 @@ void main() {
     expect(numberAttr, isNotNull);
     expect(numberAttr!.value, 'ordered');
   });
+
+  testWidgets('Test NoteEditorScreen supports pinch gesture (gesture cubit) to zoom in and out', (WidgetTester tester) async {
+    final note = NoteModel(
+      id: 'test-pinch-note',
+      title: 'Pinch Zoom Note',
+      contentJson: json.encode([
+        {'insert': 'Teks untuk zoom gesture cubit\n'}
+      ]),
+      plainText: 'Teks untuk zoom gesture cubit',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      lineSpacing: 1.6,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(fontFamily: 'Poppins'),
+        home: NoteEditorScreen(
+          note: note,
+          folders: const [],
+          onSave: (_) {},
+          onDelete: (_) {},
+          onFolderCreated: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify text exists
+    expect(find.text('Pinch Zoom Note'), findsOneWidget);
+
+    // Initial scale check on QuillEditor styles
+    QuillEditor editor = tester.widget(find.byType(QuillEditor));
+    expect(editor.config.customStyles?.paragraph?.style.fontSize, 15.0);
+
+    // Create 2 pointer gestures for pinch
+    final center = tester.getCenter(find.byType(QuillEditor));
+    final gesture1 = await tester.createGesture(pointer: 1);
+    final gesture2 = await tester.createGesture(pointer: 2);
+
+    // Initial touch: 100 pixels apart
+    await gesture1.down(center + const Offset(-50, 0));
+    await gesture2.down(center + const Offset(50, 0));
+    await tester.pump();
+
+    // Spread fingers apart (zoom in): 200 pixels apart (scale = 200/100 = 2.0 => 15 * 2 = 30)
+    await gesture1.moveTo(center + const Offset(-100, 0));
+    await gesture2.moveTo(center + const Offset(100, 0));
+    await tester.pumpAndSettle();
+
+    editor = tester.widget(find.byType(QuillEditor));
+    expect(editor.config.customStyles!.paragraph!.style.fontSize!, closeTo(30.0, 1.0));
+
+    // Pinch fingers closer (zoom out): 50 pixels apart (scale = 50/100 = 0.5 clamped to 0.6 => 15 * 0.6 = 9.0)
+    await gesture1.moveTo(center + const Offset(-25, 0));
+    await gesture2.moveTo(center + const Offset(25, 0));
+    await tester.pumpAndSettle();
+
+    editor = tester.widget(find.byType(QuillEditor));
+    expect(editor.config.customStyles!.paragraph!.style.fontSize!, closeTo(9.0, 1.0));
+
+    // Release pointers
+    await gesture1.up();
+    await gesture2.up();
+    await tester.pumpAndSettle();
+  });
 }
+
 
 
 

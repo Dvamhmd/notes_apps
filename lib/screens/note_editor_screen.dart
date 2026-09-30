@@ -47,6 +47,52 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
   late double _lineSpacing;
   Timer? _debounceTimer;
 
+  // Zoom state for pinch-to-zoom (gesture cubit)
+  double _zoomScale = 1.0;
+  double _baseZoomScale = 1.0;
+  double _initialPinchDistance = 0.0;
+  final Map<int, Offset> _pinchPointers = {};
+
+  void _handlePointerDown(PointerDownEvent event) {
+    _pinchPointers[event.pointer] = event.position;
+    if (_pinchPointers.length == 2) {
+      final points = _pinchPointers.values.toList();
+      _initialPinchDistance = (points[0] - points[1]).distance;
+      _baseZoomScale = _zoomScale;
+    }
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    if (_pinchPointers.containsKey(event.pointer)) {
+      _pinchPointers[event.pointer] = event.position;
+    }
+    if (_pinchPointers.length >= 2 && _initialPinchDistance > 10.0) {
+      final points = _pinchPointers.values.toList();
+      final currentDistance = (points[0] - points[1]).distance;
+      final scaleFactor = currentDistance / _initialPinchDistance;
+      final newScale = (_baseZoomScale * scaleFactor).clamp(0.6, 3.0);
+      if ((newScale - _zoomScale).abs() > 0.005) {
+        setState(() {
+          _zoomScale = newScale;
+        });
+      }
+    }
+  }
+
+  void _handlePointerUp(PointerUpEvent event) {
+    _pinchPointers.remove(event.pointer);
+    if (_pinchPointers.length < 2) {
+      _initialPinchDistance = 0.0;
+    }
+  }
+
+  void _handlePointerCancel(PointerCancelEvent event) {
+    _pinchPointers.remove(event.pointer);
+    if (_pinchPointers.length < 2) {
+      _initialPinchDistance = 0.0;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -560,366 +606,379 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
               children: [
                 // Editor Body
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    child: CallbackShortcuts(
-                      bindings: <ShortcutActivator, VoidCallback>{
-                        const SingleActivator(LogicalKeyboardKey.keyC, control: true): () {
-                          RichClipboardService.copySelection(_quillController);
+                  child: Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: _handlePointerDown,
+                    onPointerMove: _handlePointerMove,
+                    onPointerUp: _handlePointerUp,
+                    onPointerCancel: _handlePointerCancel,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      child: CallbackShortcuts(
+                        bindings: <ShortcutActivator, VoidCallback>{
+                          const SingleActivator(LogicalKeyboardKey.keyC, control: true): () {
+                            RichClipboardService.copySelection(_quillController);
+                          },
+                          const SingleActivator(LogicalKeyboardKey.keyC, meta: true): () {
+                            RichClipboardService.copySelection(_quillController);
+                          },
+                          const SingleActivator(LogicalKeyboardKey.keyX, control: true): () {
+                            RichClipboardService.cutSelection(_quillController);
+                          },
+                          const SingleActivator(LogicalKeyboardKey.keyX, meta: true): () {
+                            RichClipboardService.cutSelection(_quillController);
+                          },
+                          const SingleActivator(LogicalKeyboardKey.keyV, control: true): () {
+                            RichClipboardService.paste(_quillController);
+                          },
+                          const SingleActivator(LogicalKeyboardKey.keyV, meta: true): () {
+                            RichClipboardService.paste(_quillController);
+                          },
                         },
-                        const SingleActivator(LogicalKeyboardKey.keyC, meta: true): () {
-                          RichClipboardService.copySelection(_quillController);
-                        },
-                        const SingleActivator(LogicalKeyboardKey.keyX, control: true): () {
-                          RichClipboardService.cutSelection(_quillController);
-                        },
-                        const SingleActivator(LogicalKeyboardKey.keyX, meta: true): () {
-                          RichClipboardService.cutSelection(_quillController);
-                        },
-                        const SingleActivator(LogicalKeyboardKey.keyV, control: true): () {
-                          RichClipboardService.paste(_quillController);
-                        },
-                        const SingleActivator(LogicalKeyboardKey.keyV, meta: true): () {
-                          RichClipboardService.paste(_quillController);
-                        },
-                      },
-                      child: Actions(
-                        actions: <Type, Action<Intent>>{
-                          CopySelectionTextIntent: CallbackAction<CopySelectionTextIntent>(
-                            onInvoke: (intent) {
-                              RichClipboardService.copySelection(_quillController);
-                              return null;
-                            },
-                          ),
-                          PasteTextIntent: CallbackAction<PasteTextIntent>(
-                            onInvoke: (intent) {
-                              RichClipboardService.paste(_quillController);
-                              return null;
-                            },
-                          ),
-                          SelectAllTextIntent: CallbackAction<SelectAllTextIntent>(
-                            onInvoke: (intent) {
-                              final docLength = _quillController.document.length;
-                              if (docLength > 1) {
-                                _quillController.updateSelection(
-                                  TextSelection(baseOffset: 0, extentOffset: docLength - 1),
-                                  ChangeSource.local,
-                                );
-                              }
-                              return null;
-                            },
-                          ),
-                        },
-                        child: QuillCursorHandleOverlay(
-                          controller: _quillController,
-                          focusNode: _editorFocusNode,
-                          scrollController: _editorScrollController,
-                          editorKey: _editorKey,
-                          child: QuillEditor.basic(
-                            key: _editorKey,
-                          controller: _quillController,
-                          focusNode: _editorFocusNode,
-                          scrollController: _editorScrollController,
-                          config: QuillEditorConfig(
-                            enableInteractiveSelection: true,
-                            showCursor: true,
-                            paintCursorAboveText: true,
-                            enableSelectionToolbar: true,
-                            textSelectionControls: CustomTouchTextSelectionControls.instance,
-                            linkActionPickerDelegate: (context, link, node) async {
-                              await LinkService.showLinkActionDialog(
-                                context,
-                                link,
-                                controller: _quillController,
-                              );
-                              return LinkMenuAction.none;
-                            },
-                            onLaunchUrl: (url) async {
-                              await LinkService.showLinkActionDialog(
-                                context,
-                                url,
-                                controller: _quillController,
-                              );
-                            },
-                            contextMenuBuilder: (context, rawEditorState) {
-                              final selection = _quillController.selection;
-                              final isCollapsed = selection.isCollapsed;
-
-                              final items = <ContextMenuButtonItem>[];
-
-                              if (!isCollapsed) {
-                                items.add(
-                                  ContextMenuButtonItem(
-                                    type: ContextMenuButtonType.cut,
-                                    label: 'Potong',
-                                    onPressed: () {
-                                      RichClipboardService.cutSelection(_quillController);
-                                      rawEditorState.hideToolbar();
-                                    },
-                                  ),
-                                );
-                                items.add(
-                                  ContextMenuButtonItem(
-                                    type: ContextMenuButtonType.copy,
-                                    label: 'Salin',
-                                    onPressed: () {
-                                      RichClipboardService.copySelection(_quillController);
-                                      rawEditorState.hideToolbar();
-                                    },
-                                  ),
-                                );
-                              }
-
-                              items.add(
-                                ContextMenuButtonItem(
-                                  type: ContextMenuButtonType.paste,
-                                  label: 'Tempel',
-                                  onPressed: () async {
-                                    await RichClipboardService.paste(_quillController);
-                                    rawEditorState.hideToolbar();
-                                  },
-                                ),
-                              );
-
-                              items.add(
-                                ContextMenuButtonItem(
-                                  type: ContextMenuButtonType.selectAll,
-                                  label: 'Pilih Semua',
-                                  onPressed: () {
-                                    rawEditorState.selectAll(SelectionChangedCause.toolbar);
-                                  },
-                                ),
-                              );
-
-                              // Append any additional system/custom items (like share)
-                              for (final rawItem in rawEditorState.contextMenuButtonItems) {
-                                if (rawItem.type != ContextMenuButtonType.cut &&
-                                    rawItem.type != ContextMenuButtonType.copy &&
-                                    rawItem.type != ContextMenuButtonType.paste &&
-                                    rawItem.type != ContextMenuButtonType.selectAll) {
-                                  items.add(rawItem);
+                        child: Actions(
+                          actions: <Type, Action<Intent>>{
+                            CopySelectionTextIntent: CallbackAction<CopySelectionTextIntent>(
+                              onInvoke: (intent) {
+                                RichClipboardService.copySelection(_quillController);
+                                return null;
+                              },
+                            ),
+                            PasteTextIntent: CallbackAction<PasteTextIntent>(
+                              onInvoke: (intent) {
+                                RichClipboardService.paste(_quillController);
+                                return null;
+                              },
+                            ),
+                            SelectAllTextIntent: CallbackAction<SelectAllTextIntent>(
+                              onInvoke: (intent) {
+                                final docLength = _quillController.document.length;
+                                if (docLength > 1) {
+                                  _quillController.updateSelection(
+                                    TextSelection(baseOffset: 0, extentOffset: docLength - 1),
+                                    ChangeSource.local,
+                                  );
                                 }
-                              }
+                                return null;
+                              },
+                            ),
+                          },
+                          child: QuillCursorHandleOverlay(
+                            controller: _quillController,
+                            focusNode: _editorFocusNode,
+                            scrollController: _editorScrollController,
+                            editorKey: _editorKey,
+                            child: QuillEditor.basic(
+                              key: _editorKey,
+                            controller: _quillController,
+                            focusNode: _editorFocusNode,
+                            scrollController: _editorScrollController,
+                            config: QuillEditorConfig(
+                              enableInteractiveSelection: true,
+                              showCursor: true,
+                              paintCursorAboveText: true,
+                              enableSelectionToolbar: true,
+                              textSelectionControls: CustomTouchTextSelectionControls.instance,
+                              linkActionPickerDelegate: (context, link, node) async {
+                                await LinkService.showLinkActionDialog(
+                                  context,
+                                  link,
+                                  controller: _quillController,
+                                );
+                                return LinkMenuAction.none;
+                              },
+                              onLaunchUrl: (url) async {
+                                await LinkService.showLinkActionDialog(
+                                  context,
+                                  url,
+                                  controller: _quillController,
+                                );
+                              },
+                              contextMenuBuilder: (context, rawEditorState) {
+                                final selection = _quillController.selection;
+                                final isCollapsed = selection.isCollapsed;
 
-                              return AdaptiveTextSelectionToolbar.buttonItems(
-                                anchors: rawEditorState.contextMenuAnchors,
-                                buttonItems: items,
-                              );
-                            },
-                            scrollable: true,
-                            expands: true,
-                            padding: const EdgeInsets.only(bottom: 80),
-                            embedBuilders: [
-                              DividerEmbedBuilder(),
-                            ],
-                            customStyleBuilder: (Attribute attribute) {
-                              if (attribute.key == Attribute.link.key) {
-                                return const TextStyle(
+                                final items = <ContextMenuButtonItem>[];
+
+                                if (!isCollapsed) {
+                                  items.add(
+                                    ContextMenuButtonItem(
+                                      type: ContextMenuButtonType.cut,
+                                      label: 'Potong',
+                                      onPressed: () {
+                                        RichClipboardService.cutSelection(_quillController);
+                                        rawEditorState.hideToolbar();
+                                      },
+                                    ),
+                                  );
+                                  items.add(
+                                    ContextMenuButtonItem(
+                                      type: ContextMenuButtonType.copy,
+                                      label: 'Salin',
+                                      onPressed: () {
+                                        RichClipboardService.copySelection(_quillController);
+                                        rawEditorState.hideToolbar();
+                                      },
+                                    ),
+                                  );
+                                }
+
+                                items.add(
+                                  ContextMenuButtonItem(
+                                    type: ContextMenuButtonType.paste,
+                                    label: 'Tempel',
+                                    onPressed: () async {
+                                      await RichClipboardService.paste(_quillController);
+                                      rawEditorState.hideToolbar();
+                                    },
+                                  ),
+                                );
+
+                                items.add(
+                                  ContextMenuButtonItem(
+                                    type: ContextMenuButtonType.selectAll,
+                                    label: 'Pilih Semua',
+                                    onPressed: () {
+                                      rawEditorState.selectAll(SelectionChangedCause.toolbar);
+                                    },
+                                  ),
+                                );
+
+                                // Append any additional system/custom items (like share)
+                                for (final rawItem in rawEditorState.contextMenuButtonItems) {
+                                  if (rawItem.type != ContextMenuButtonType.cut &&
+                                      rawItem.type != ContextMenuButtonType.copy &&
+                                      rawItem.type != ContextMenuButtonType.paste &&
+                                      rawItem.type != ContextMenuButtonType.selectAll) {
+                                    items.add(rawItem);
+                                  }
+                                }
+
+                                return AdaptiveTextSelectionToolbar.buttonItems(
+                                  anchors: rawEditorState.contextMenuAnchors,
+                                  buttonItems: items,
+                                );
+                              },
+                              scrollable: true,
+                              expands: true,
+                              padding: const EdgeInsets.only(bottom: 80),
+                              embedBuilders: [
+                                DividerEmbedBuilder(),
+                              ],
+                              customStyleBuilder: (Attribute attribute) {
+                                if (attribute.key == Attribute.link.key) {
+                                  return const TextStyle(
+                                    color: Color(0xFF2563EB),
+                                    decoration: TextDecoration.underline,
+                                    decorationColor: Color(0xFF2563EB),
+                                    decorationThickness: 1.3,
+                                  );
+                                }
+                                if (attribute.key == Attribute.underline.key) {
+                                  return const TextStyle(
+                                    decoration: TextDecoration.underline,
+                                    decorationThickness: 1.3,
+                                    decorationStyle: TextDecorationStyle.solid,
+                                  );
+                                }
+                                if (attribute.key == Attribute.lineHeight.key) {
+                                  final h = double.tryParse(attribute.value?.toString() ?? '');
+                                  if (h != null) {
+                                    return TextStyle(height: h);
+                                  }
+                                }
+                                if (attribute.key == Attribute.size.key) {
+                                  final val = attribute.value;
+                                  if (val != null) {
+                                    if (val == 'small') return TextStyle(fontSize: 12 * _zoomScale);
+                                    if (val == 'normal') return TextStyle(fontSize: 15 * _zoomScale);
+                                    if (val == 'large') return TextStyle(fontSize: 20 * _zoomScale);
+                                    if (val == 'huge') return TextStyle(fontSize: 26 * _zoomScale);
+                                    final size = double.tryParse(val.toString());
+                                    if (size != null) {
+                                      return TextStyle(fontSize: size * _zoomScale);
+                                    }
+                                  }
+                                }
+                                if (attribute.key == Attribute.header.key) {
+                                  final h = _parseHeaderValue(attribute.value);
+                                  if (h != null) {
+                                    return TextStyle(fontSize: h * _zoomScale);
+                                  }
+                                }
+                                return const TextStyle();
+                              },
+                              // ignore: experimental_member_use
+                              customLeadingBlockBuilder: (node, config) {
+                                final effectiveFontSize = _resolveEffectiveFontSize(node, config) * _zoomScale;
+                                final effectiveColor = _resolveEffectiveColor(node, config);
+                                final effectiveFontWeight = _resolveEffectiveFontWeight(node, config);
+
+                                final blockHeightAttr = node.style.attributes[Attribute.lineHeight.key];
+                                final customHeight = blockHeightAttr?.value != null
+                                    ? double.tryParse(blockHeightAttr!.value.toString())
+                                    : null;
+                                final effectiveHeight = customHeight ?? 1.6;
+
+                                // The list line in Flutter Quill has a minimum bounding strut of 15.0 pt
+                                // and expands when text font size is larger than 15.0 pt.
+                                final nominalFontSize = math.max(15.0 * _zoomScale, effectiveFontSize);
+                                final lineBoxHeight = nominalFontSize * effectiveHeight;
+
+                                if (config.attribute == Attribute.ul) {
+                                  final bulletSize = (effectiveFontSize * 0.38).clamp(3.5 * _zoomScale, 14.0 * _zoomScale);
+                                  final leadingWidth = (effectiveFontSize * 1.7).clamp(24.0 * _zoomScale, 48.0 * _zoomScale);
+                                  final paddingEnd = (effectiveFontSize * 0.45).clamp(6.0 * _zoomScale, 16.0 * _zoomScale);
+
+                                  // Optical vertical center calculation for Poppins text glyphs
+                                  final baselineY = (lineBoxHeight / 2) + (nominalFontSize * 0.35);
+                                  final opticalCenterY = baselineY - (effectiveFontSize * 0.35);
+                                  final bulletTop = (opticalCenterY - (bulletSize / 2)).clamp(0.0, lineBoxHeight - bulletSize);
+
+                                  return Container(
+                                    width: leadingWidth,
+                                    height: lineBoxHeight,
+                                    padding: EdgeInsetsDirectional.only(end: paddingEnd),
+                                    child: Align(
+                                      alignment: AlignmentDirectional.topEnd,
+                                      child: Padding(
+                                        padding: EdgeInsets.only(top: bulletTop),
+                                        child: Container(
+                                          width: bulletSize,
+                                          height: bulletSize,
+                                          decoration: BoxDecoration(
+                                            color: effectiveColor,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                if (config.attribute == Attribute.ol) {
+                                  final numberStr =
+                                      '${config.getIndexNumberByIndent ?? '1'}${config.withDot ? '.' : ''}';
+                                  final paddingEnd = (effectiveFontSize * 0.4).clamp(6.0 * _zoomScale, 16.0 * _zoomScale);
+                                  final estimatedCharWidth = effectiveFontSize * 0.62;
+                                  final neededWidth = (numberStr.length * estimatedCharWidth) + paddingEnd + (4.0 * _zoomScale);
+                                  final dynamicWidth = neededWidth.clamp(28.0 * _zoomScale, 72.0 * _zoomScale);
+
+                                  final effectiveStyle = TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: effectiveFontSize,
+                                    fontWeight: effectiveFontWeight,
+                                    color: effectiveColor,
+                                    height: effectiveHeight,
+                                  );
+
+                                  return Container(
+                                    width: dynamicWidth,
+                                    height: lineBoxHeight,
+                                    padding: EdgeInsetsDirectional.only(end: paddingEnd),
+                                    alignment: AlignmentDirectional.topEnd,
+                                    child: Text(
+                                      numberStr,
+                                      style: effectiveStyle,
+                                      strutStyle: StrutStyle(
+                                        fontFamily: 'Poppins',
+                                        fontSize: nominalFontSize,
+                                        height: effectiveHeight,
+                                        forceStrutHeight: true,
+                                      ),
+                                      textAlign: TextAlign.end,
+                                    ),
+                                  );
+                                }
+
+                                return null;
+                              },
+                              customStyles: DefaultStyles(
+                                link: const TextStyle(
                                   color: Color(0xFF2563EB),
                                   decoration: TextDecoration.underline,
                                   decorationColor: Color(0xFF2563EB),
                                   decorationThickness: 1.3,
-                                );
-                              }
-                              if (attribute.key == Attribute.underline.key) {
-                                return const TextStyle(
-                                  decoration: TextDecoration.underline,
-                                  decorationThickness: 1.3,
-                                  decorationStyle: TextDecorationStyle.solid,
-                                );
-                              }
-                              if (attribute.key == Attribute.lineHeight.key) {
-                                final h = double.tryParse(attribute.value?.toString() ?? '');
-                                if (h != null) {
-                                  return TextStyle(height: h);
-                                }
-                              }
-                              if (attribute.key == Attribute.size.key) {
-                                final val = attribute.value;
-                                if (val != null) {
-                                  if (val == 'small') return const TextStyle(fontSize: 12);
-                                  if (val == 'normal') return const TextStyle(fontSize: 15);
-                                  if (val == 'large') return const TextStyle(fontSize: 20);
-                                  if (val == 'huge') return const TextStyle(fontSize: 26);
-                                  final size = double.tryParse(val.toString());
-                                  if (size != null) {
-                                    return TextStyle(fontSize: size);
-                                  }
-                                }
-                              }
-                              return const TextStyle();
-                            },
-                            // ignore: experimental_member_use
-                            customLeadingBlockBuilder: (node, config) {
-                              final effectiveFontSize = _resolveEffectiveFontSize(node, config);
-                              final effectiveColor = _resolveEffectiveColor(node, config);
-                              final effectiveFontWeight = _resolveEffectiveFontWeight(node, config);
-
-                              final blockHeightAttr = node.style.attributes[Attribute.lineHeight.key];
-                              final customHeight = blockHeightAttr?.value != null
-                                  ? double.tryParse(blockHeightAttr!.value.toString())
-                                  : null;
-                              final effectiveHeight = customHeight ?? 1.6;
-
-                              // The list line in Flutter Quill has a minimum bounding strut of 15.0 pt
-                              // and expands when text font size is larger than 15.0 pt.
-                              final nominalFontSize = math.max(15.0, effectiveFontSize);
-                              final lineBoxHeight = nominalFontSize * effectiveHeight;
-
-                              if (config.attribute == Attribute.ul) {
-                                final bulletSize = (effectiveFontSize * 0.38).clamp(3.5, 14.0);
-                                final leadingWidth = (effectiveFontSize * 1.7).clamp(24.0, 48.0);
-                                final paddingEnd = (effectiveFontSize * 0.45).clamp(6.0, 16.0);
-
-                                // Optical vertical center calculation for Poppins text glyphs
-                                final baselineY = (lineBoxHeight / 2) + (nominalFontSize * 0.35);
-                                final opticalCenterY = baselineY - (effectiveFontSize * 0.35);
-                                final bulletTop = (opticalCenterY - (bulletSize / 2)).clamp(0.0, lineBoxHeight - bulletSize);
-
-                                return Container(
-                                  width: leadingWidth,
-                                  height: lineBoxHeight,
-                                  padding: EdgeInsetsDirectional.only(end: paddingEnd),
-                                  child: Align(
-                                    alignment: AlignmentDirectional.topEnd,
-                                    child: Padding(
-                                      padding: EdgeInsets.only(top: bulletTop),
-                                      child: Container(
-                                        width: bulletSize,
-                                        height: bulletSize,
-                                        decoration: BoxDecoration(
-                                          color: effectiveColor,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                    ),
+                                ),
+                                paragraph: DefaultTextBlockStyle(
+                                  TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 15 * _zoomScale,
+                                    color: const Color(0xFF1E293B),
+                                    height: 1.6,
                                   ),
-                                );
-                              }
-
-                              if (config.attribute == Attribute.ol) {
-                                final numberStr =
-                                    '${config.getIndexNumberByIndent ?? '1'}${config.withDot ? '.' : ''}';
-                                final paddingEnd = (effectiveFontSize * 0.4).clamp(6.0, 16.0);
-                                final estimatedCharWidth = effectiveFontSize * 0.62;
-                                final neededWidth = (numberStr.length * estimatedCharWidth) + paddingEnd + 4.0;
-                                final dynamicWidth = neededWidth.clamp(28.0, 72.0);
-
-                                final effectiveStyle = TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: effectiveFontSize,
-                                  fontWeight: effectiveFontWeight,
-                                  color: effectiveColor,
-                                  height: effectiveHeight,
-                                );
-
-                                return Container(
-                                  width: dynamicWidth,
-                                  height: lineBoxHeight,
-                                  padding: EdgeInsetsDirectional.only(end: paddingEnd),
-                                  alignment: AlignmentDirectional.topEnd,
-                                  child: Text(
-                                    numberStr,
-                                    style: effectiveStyle,
-                                    strutStyle: StrutStyle(
-                                      fontFamily: 'Poppins',
-                                      fontSize: nominalFontSize,
-                                      height: effectiveHeight,
-                                      forceStrutHeight: true,
-                                    ),
-                                    textAlign: TextAlign.end,
+                                  const HorizontalSpacing(0, 0),
+                                  const VerticalSpacing(0, 1.8),
+                                  const VerticalSpacing(0, 0),
+                                  null,
+                                ),
+                                h1: DefaultTextBlockStyle(
+                                  TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 24 * _zoomScale,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF0F172A),
+                                    height: 1.35,
                                   ),
-                                );
-                              }
-
-                              return null;
-                            },
-                            customStyles: const DefaultStyles(
-                              link: TextStyle(
-                                color: Color(0xFF2563EB),
-                                decoration: TextDecoration.underline,
-                                decorationColor: Color(0xFF2563EB),
-                                decorationThickness: 1.3,
-                              ),
-                              paragraph: DefaultTextBlockStyle(
-                                TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 15,
-                                  color: Color(0xFF1E293B),
-                                  height: 1.6,
+                                  const HorizontalSpacing(0, 0),
+                                  const VerticalSpacing(16, 8),
+                                  const VerticalSpacing(0, 0),
+                                  null,
                                 ),
-                                HorizontalSpacing(0, 0),
-                                VerticalSpacing(0, 1.8),
-                                VerticalSpacing(0, 0),
-                                null,
-                              ),
-                              h1: DefaultTextBlockStyle(
-                                TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF0F172A),
-                                  height: 1.35,
+                                h2: DefaultTextBlockStyle(
+                                  TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 20 * _zoomScale,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF1E293B),
+                                    height: 1.45,
+                                  ),
+                                  const HorizontalSpacing(0, 0),
+                                  const VerticalSpacing(12, 6),
+                                  const VerticalSpacing(0, 0),
+                                  null,
                                 ),
-                                HorizontalSpacing(0, 0),
-                                VerticalSpacing(16, 8),
-                                VerticalSpacing(0, 0),
-                                null,
-                              ),
-                              h2: DefaultTextBlockStyle(
-                                TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF1E293B),
-                                  height: 1.45,
+                                h3: DefaultTextBlockStyle(
+                                  TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 17 * _zoomScale,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF334155),
+                                    height: 1.5,
+                                  ),
+                                  const HorizontalSpacing(0, 0),
+                                  const VerticalSpacing(8, 4),
+                                  const VerticalSpacing(0, 0),
+                                  null,
                                 ),
-                                HorizontalSpacing(0, 0),
-                                VerticalSpacing(12, 6),
-                                VerticalSpacing(0, 0),
-                                null,
-                              ),
-                              h3: DefaultTextBlockStyle(
-                                TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF334155),
-                                  height: 1.5,
+                                lists: DefaultListBlockStyle(
+                                  TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 15 * _zoomScale,
+                                    color: const Color(0xFF1E293B),
+                                    height: 1.6,
+                                  ),
+                                  const HorizontalSpacing(0, 0),
+                                  const VerticalSpacing(2, 1.2),
+                                  const VerticalSpacing(0, 0),
+                                  null,
+                                  null,
                                 ),
-                                HorizontalSpacing(0, 0),
-                                VerticalSpacing(8, 4),
-                                VerticalSpacing(0, 0),
-                                null,
-                              ),
-                              lists: DefaultListBlockStyle(
-                                TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 15,
-                                  color: Color(0xFF1E293B),
-                                  height: 1.6,
+                                leading: DefaultTextBlockStyle(
+                                  TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 15 * _zoomScale,
+                                    color: const Color(0xFF1E293B),
+                                    height: 1.6,
+                                  ),
+                                  const HorizontalSpacing(0, 0),
+                                  const VerticalSpacing(0, 0),
+                                  const VerticalSpacing(0, 0),
+                                  null,
                                 ),
-                                HorizontalSpacing(0, 0),
-                                VerticalSpacing(2, 1.2),
-                                VerticalSpacing(0, 0),
-                                null,
-                                null,
-                              ),
-                              leading: DefaultTextBlockStyle(
-                                TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 15,
-                                  color: Color(0xFF1E293B),
-                                  height: 1.6,
-                                ),
-                                HorizontalSpacing(0, 0),
-                                VerticalSpacing(0, 0),
-                                VerticalSpacing(0, 0),
-                                null,
                               ),
                             ),
-                          ),
 
+                          ),
                         ),
                       ),
                     ),
