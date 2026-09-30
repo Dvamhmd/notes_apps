@@ -442,7 +442,12 @@ class _HomeScreenState extends State<HomeScreen> {
       await _loadData();
 
       if (mounted) {
-        _openNoteEditor(newNote);
+        final noteTitle = newNote.title.isEmpty ? 'Catatan baru' : 'Catatan "${newNote.title}"';
+        _showToast(
+          '$noteTitle berhasil dibuat',
+          icon: Icons.check_circle_outline_rounded,
+          iconColor: const Color(0xFF10B981),
+        );
       }
     }
   }
@@ -462,10 +467,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openNoteEditor(NoteModel note) async {
+    // 1. Check if folder or any ancestor folder is locked
+    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders);
+    if (lockedFolder != null && lockedFolder.id != _currentFolderId && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: lockedFolder.name,
+        itemType: 'Folder',
+        correctPassword: lockedFolder.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+
+    // 2. Check if note itself is locked
     if (note.isLocked && note.password != null && note.password!.isNotEmpty) {
       final unlocked = await PasswordDialog.showUnlock(
         context,
-        title: note.title,
+        title: note.title.isEmpty ? 'Catatan' : note.title,
         itemType: 'Catatan',
         correctPassword: note.password!,
       );
@@ -637,6 +655,26 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _moveNote(NoteModel note) async {
+    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders);
+    if (lockedFolder != null && lockedFolder.id != _currentFolderId && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: lockedFolder.name,
+        itemType: 'Folder',
+        correctPassword: lockedFolder.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+    if (note.isLocked && note.password != null && note.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: note.title.isEmpty ? 'Catatan' : note.title,
+        itemType: 'Catatan',
+        correctPassword: note.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+
     final selected = await showDialog<String>(
       context: context,
       builder: (ctx) => MoveNoteDialog(
@@ -668,18 +706,81 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _togglePin(NoteModel note) async {
+    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders);
+    if (lockedFolder != null && lockedFolder.id != _currentFolderId && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: lockedFolder.name,
+        itemType: 'Folder',
+        correctPassword: lockedFolder.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+    if (note.isLocked && note.password != null && note.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: note.title.isEmpty ? 'Catatan' : note.title,
+        itemType: 'Catatan',
+        correctPassword: note.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+
     final updated = note.copyWith(isPinned: !note.isPinned);
     await _storageService.saveOrUpdateNote(updated);
     _loadData();
   }
 
-  void _confirmBatchDelete() {
+  void _confirmBatchDelete() async {
     final noteCount = _selectedNoteIds.length;
     final folderCount = _selectedFolderIds.length;
     final totalCount = _totalSelectedCount;
 
     if (totalCount == 0) return;
 
+    // Check if any selected folder or its subfolder is locked
+    for (final folderId in _selectedFolderIds) {
+      final allDescendants = FolderUtils.getDescendantFolderIds(folderId, _folders);
+      final allFolderIds = {folderId, ...allDescendants};
+      FolderModel? lockedTarget;
+      final lockedAncestor = FolderUtils.getLockedAncestorFolder(folderId, _folders);
+      if (lockedAncestor != null && lockedAncestor.password != null && lockedAncestor.password!.isNotEmpty) {
+        lockedTarget = lockedAncestor;
+      } else {
+        for (final id in allFolderIds) {
+          final f = _folders.cast<FolderModel?>().firstWhere((item) => item?.id == id, orElse: () => null);
+          if (f != null && f.isLocked && f.password != null && f.password!.isNotEmpty) {
+            lockedTarget = f;
+            break;
+          }
+        }
+      }
+      if (lockedTarget != null && lockedTarget.password != null && lockedTarget.password!.isNotEmpty) {
+        final unlocked = await PasswordDialog.showUnlock(
+          context,
+          title: lockedTarget.name,
+          itemType: 'Folder',
+          correctPassword: lockedTarget.password!,
+        );
+        if (!unlocked || !mounted) return;
+      }
+    }
+
+    // Check if any selected note is locked
+    for (final noteId in _selectedNoteIds) {
+      final note = _allNotes.cast<NoteModel?>().firstWhere((n) => n?.id == noteId, orElse: () => null);
+      if (note != null && note.isLocked && note.password != null && note.password!.isNotEmpty) {
+        final unlocked = await PasswordDialog.showUnlock(
+          context,
+          title: note.title.isEmpty ? 'Catatan' : note.title,
+          itemType: 'Catatan',
+          correctPassword: note.password!,
+        );
+        if (!unlocked || !mounted) return;
+      }
+    }
+
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1094,10 +1195,21 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
   void _handleLockNote(NoteModel note) async {
+    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders);
+    if (lockedFolder != null && lockedFolder.id != _currentFolderId && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: lockedFolder.name,
+        itemType: 'Folder',
+        correctPassword: lockedFolder.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+
     if (!note.isLocked || note.password == null || note.password!.isEmpty) {
       final newPass = await PasswordDialog.showSetPassword(
         context,
-        title: note.title,
+        title: note.title.isEmpty ? 'Catatan' : note.title,
         itemType: 'Catatan',
       );
       if (newPass != null && mounted) {
@@ -1240,10 +1352,31 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showRenameNoteDialog(NoteModel note) {
+  void _showRenameNoteDialog(NoteModel note) async {
+    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders);
+    if (lockedFolder != null && lockedFolder.id != _currentFolderId && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: lockedFolder.name,
+        itemType: 'Folder',
+        correctPassword: lockedFolder.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+    if (note.isLocked && note.password != null && note.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: note.title.isEmpty ? 'Catatan' : note.title,
+        itemType: 'Catatan',
+        correctPassword: note.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+
     final controller = TextEditingController(text: note.title);
     final formKey = GlobalKey<FormState>();
 
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1342,7 +1475,28 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _confirmDeleteNote(NoteModel note) {
+  void _confirmDeleteNote(NoteModel note) async {
+    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders);
+    if (lockedFolder != null && lockedFolder.id != _currentFolderId && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: lockedFolder.name,
+        itemType: 'Folder',
+        correctPassword: lockedFolder.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+    if (note.isLocked && note.password != null && note.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: note.title.isEmpty ? 'Catatan' : note.title,
+        itemType: 'Catatan',
+        correctPassword: note.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1778,15 +1932,42 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _confirmDeleteFolder(FolderModel folder) {
+  void _confirmDeleteFolder(FolderModel folder) async {
     final allDescendants =
         FolderUtils.getDescendantFolderIds(folder.id, _folders);
     final allFolderIds = {folder.id, ...allDescendants};
+
+    // Check if folder itself, ancestor, or any of its descendant subfolders is locked
+    FolderModel? lockedTarget;
+    final lockedAncestor = FolderUtils.getLockedAncestorFolder(folder.id, _folders);
+    if (lockedAncestor != null && lockedAncestor.password != null && lockedAncestor.password!.isNotEmpty) {
+      lockedTarget = lockedAncestor;
+    } else {
+      for (final id in allFolderIds) {
+        final f = _folders.cast<FolderModel?>().firstWhere((item) => item?.id == id, orElse: () => null);
+        if (f != null && f.isLocked && f.password != null && f.password!.isNotEmpty) {
+          lockedTarget = f;
+          break;
+        }
+      }
+    }
+
+    if (lockedTarget != null && lockedTarget.password != null && lockedTarget.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: lockedTarget.name,
+        itemType: 'Folder',
+        correctPassword: lockedTarget.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+
     final totalNotesCount = _allNotes
         .where((n) => n.folderId != null && allFolderIds.contains(n.folderId))
         .length;
     final subfolderCount = allDescendants.length;
 
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -3546,12 +3727,15 @@ class _HomeScreenState extends State<HomeScreen> {
         else
           ...displayedNotes.map((note) {
             final folder = _getFolderById(note.folderId);
+            final isFolderLocked = FolderUtils.isFolderOrAncestorLocked(note.folderId, _folders);
+            final isLockedForDisplay = isFolderLocked && _currentFolderId == null;
             final isSelected = _selectedNoteIds.contains(note.id);
 
             if (_isSelectionMode) {
               return NoteCard(
                 note: note,
                 folder: folder,
+                isFolderLocked: isLockedForDisplay,
                 isSelectionMode: true,
                 isSelected: isSelected,
                 onTap: () => _toggleNoteSelection(note.id),
@@ -3580,12 +3764,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: NoteCard(
                   note: note,
                   folder: folder,
+                  isFolderLocked: isLockedForDisplay,
                   onTap: () => _openNoteEditor(note),
                 ),
               ),
               child: NoteCard(
                 note: note,
                 folder: folder,
+                isFolderLocked: isLockedForDisplay,
                 onTap: () => _openNoteEditor(note),
                 onLongPress: () {
                   HapticFeedback.mediumImpact();
@@ -4010,6 +4196,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           ...matchedNotes.map((note) {
             final folder = _getFolderById(note.folderId);
+            final isFolderLocked = FolderUtils.isFolderOrAncestorLocked(note.folderId, _folders);
+            final isLockedForDisplay = isFolderLocked && (_currentFolderId == null || _currentFolderId != note.folderId);
             final folderPathStr = FolderUtils.getFolderPathString(
               note.folderId,
               _folders,
@@ -4023,6 +4211,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 note: note,
                 folder: folder,
                 folderPath: folderPathStr,
+                isFolderLocked: isLockedForDisplay,
                 isSelectionMode: true,
                 isSelected: isSelected,
                 onTap: () => _toggleNoteSelection(note.id),
@@ -4052,6 +4241,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   note: note,
                   folder: folder,
                   folderPath: folderPathStr,
+                  isFolderLocked: isLockedForDisplay,
                   onTap: () => _openNoteEditor(note),
                 ),
               ),
@@ -4059,6 +4249,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 note: note,
                 folder: folder,
                 folderPath: folderPathStr,
+                isFolderLocked: isLockedForDisplay,
                 onTap: () => _openNoteEditor(note),
                 onLongPress: () {
                   HapticFeedback.mediumImpact();

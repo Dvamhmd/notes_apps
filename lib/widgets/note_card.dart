@@ -15,6 +15,7 @@ class NoteCard extends StatelessWidget {
   final VoidCallback? onLongPress;
   final bool isSelectionMode;
   final bool isSelected;
+  final bool isFolderLocked;
   final Widget? trailing;
   final EdgeInsetsGeometry? margin;
 
@@ -27,6 +28,7 @@ class NoteCard extends StatelessWidget {
     this.onLongPress,
     this.isSelectionMode = false,
     this.isSelected = false,
+    this.isFolderLocked = false,
     this.trailing,
     this.margin,
   });
@@ -133,7 +135,7 @@ class NoteCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (note.isLocked && !isSelectionMode) ...[
+                    if ((note.isLocked || isFolderLocked) && !isSelectionMode) ...[
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
@@ -145,18 +147,18 @@ class NoteCard extends StatelessWidget {
                             width: 1,
                           ),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.lock_rounded,
                               size: 12,
                               color: Color(0xFFD97706),
                             ),
-                            SizedBox(width: 3),
+                            const SizedBox(width: 3),
                             Text(
-                              'Terkunci',
-                              style: TextStyle(
+                              note.isLocked ? 'Terkunci' : 'Folder Terkunci',
+                              style: const TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
                                 color: Color(0xFFD97706),
@@ -204,6 +206,27 @@ class NoteCard extends StatelessWidget {
                           fontStyle: FontStyle.italic,
                           fontWeight: FontWeight.w400,
                           color: Color(0xFF94A3B8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else if (isFolderLocked) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.lock_outline_rounded,
+                        size: 14,
+                        color: const Color(0xFFD97706).withValues(alpha: 0.9),
+                      ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Folder catatan terkunci',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFFD97706),
                         ),
                       ),
                     ],

@@ -544,15 +544,42 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
     );
   }
 
-  void _confirmDeleteFolder(FolderModel folder) {
+  void _confirmDeleteFolder(FolderModel folder) async {
     final allDescendants =
         FolderUtils.getDescendantFolderIds(folder.id, _folders);
     final allFolderIds = {folder.id, ...allDescendants};
+
+    // Check if folder itself, ancestor, or any of its descendant subfolders is locked
+    FolderModel? lockedTarget;
+    final lockedAncestor = FolderUtils.getLockedAncestorFolder(folder.id, _folders);
+    if (lockedAncestor != null && lockedAncestor.password != null && lockedAncestor.password!.isNotEmpty) {
+      lockedTarget = lockedAncestor;
+    } else {
+      for (final id in allFolderIds) {
+        final f = _folders.cast<FolderModel?>().firstWhere((item) => item?.id == id, orElse: () => null);
+        if (f != null && f.isLocked && f.password != null && f.password!.isNotEmpty) {
+          lockedTarget = f;
+          break;
+        }
+      }
+    }
+
+    if (lockedTarget != null && lockedTarget.password != null && lockedTarget.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: lockedTarget.name,
+        itemType: 'Folder',
+        correctPassword: lockedTarget.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+
     final totalNotesCount = widget.notes
         .where((n) => n.folderId != null && allFolderIds.contains(n.folderId))
         .length;
     final subfolderCount = allDescendants.length;
 
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

@@ -5,9 +5,11 @@ import '../models/folder_model.dart';
 import '../models/note_model.dart';
 import '../models/sort_option.dart';
 import '../services/storage_service.dart';
+import '../utils/folder_utils.dart';
 import '../widgets/create_note_dialog.dart';
 import '../widgets/move_note_dialog.dart';
 import '../widgets/note_card.dart';
+import '../widgets/password_dialog.dart';
 import '../widgets/sort_bottom_sheet.dart';
 import 'note_editor_screen.dart';
 
@@ -188,7 +190,31 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
   }
 
   Future<void> _openNoteEditor(NoteModel note) async {
+    // 1. Check if parent folder or any ancestor folder is locked
+    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders);
+    if (lockedFolder != null && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: lockedFolder.name,
+        itemType: 'Folder',
+        correctPassword: lockedFolder.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+
+    // 2. Check if note itself is locked
+    if (note.isLocked && note.password != null && note.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: note.title.isEmpty ? 'Catatan' : note.title,
+        itemType: 'Catatan',
+        correctPassword: note.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+
     _storageService.recordNoteAccess(note.id);
+    if (!mounted) return;
     await Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (ctx, animation, secondaryAnimation) => RepaintBoundary(
@@ -265,7 +291,12 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
       await _loadData();
 
       if (mounted) {
-        _openNoteEditor(newNote);
+        final noteTitle = newNote.title.isEmpty ? 'Catatan baru' : 'Catatan "${newNote.title}"';
+        _showToast(
+          '$noteTitle berhasil dibuat',
+          icon: Icons.check_circle_outline_rounded,
+          iconColor: const Color(0xFF10B981),
+        );
       }
     }
   }
@@ -289,6 +320,26 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
   }
 
   Future<void> _togglePinNote(NoteModel note) async {
+    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders);
+    if (lockedFolder != null && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: lockedFolder.name,
+        itemType: 'Folder',
+        correctPassword: lockedFolder.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+    if (note.isLocked && note.password != null && note.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: note.title.isEmpty ? 'Catatan' : note.title,
+        itemType: 'Catatan',
+        correctPassword: note.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+
     final updated = note.copyWith(isPinned: !note.isPinned);
     await _storageService.saveOrUpdateNote(updated);
     widget.onNoteSaved?.call(updated);
@@ -303,6 +354,26 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
   }
 
   Future<void> _moveNote(NoteModel note) async {
+    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders);
+    if (lockedFolder != null && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: lockedFolder.name,
+        itemType: 'Folder',
+        correctPassword: lockedFolder.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+    if (note.isLocked && note.password != null && note.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: note.title.isEmpty ? 'Catatan' : note.title,
+        itemType: 'Catatan',
+        correctPassword: note.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+
     final selected = await showDialog<String>(
       context: context,
       builder: (ctx) => MoveNoteDialog(
@@ -332,6 +403,26 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
   }
 
   Future<void> _confirmDeleteNote(NoteModel note) async {
+    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders);
+    if (lockedFolder != null && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: lockedFolder.name,
+        itemType: 'Folder',
+        correctPassword: lockedFolder.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+    if (note.isLocked && note.password != null && note.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: note.title.isEmpty ? 'Catatan' : note.title,
+        itemType: 'Catatan',
+        correctPassword: note.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -394,6 +485,78 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
         icon: Icons.delete_outline_rounded,
         iconColor: const Color(0xFFEF4444),
       );
+    }
+  }
+
+  void _handleLockNote(NoteModel note) async {
+    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders);
+    if (lockedFolder != null && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
+      final unlocked = await PasswordDialog.showUnlock(
+        context,
+        title: lockedFolder.name,
+        itemType: 'Folder',
+        correctPassword: lockedFolder.password!,
+      );
+      if (!unlocked || !mounted) return;
+    }
+
+    if (!note.isLocked || note.password == null || note.password!.isEmpty) {
+      final newPass = await PasswordDialog.showSetPassword(
+        context,
+        title: note.title.isEmpty ? 'Catatan' : note.title,
+        itemType: 'Catatan',
+      );
+      if (newPass != null && mounted) {
+        final updated = note.copyWith(
+          isLocked: true,
+          password: newPass,
+        );
+        await _storageService.saveOrUpdateNote(updated);
+        widget.onNoteSaved?.call(updated);
+        await _loadData();
+        _showToast(
+          'Catatan berhasil dikunci dengan kata sandi',
+          icon: Icons.lock_rounded,
+          iconColor: const Color(0xFF10B981),
+        );
+      }
+    } else {
+      final result = await PasswordDialog.showManagePassword(
+        context,
+        title: note.title.isEmpty ? 'Catatan' : note.title,
+        itemType: 'Catatan',
+        currentPassword: note.password!,
+      );
+
+      if (result != null && mounted) {
+        if (result.action == PasswordManageAction.removed) {
+          final updated = note.copyWith(
+            isLocked: false,
+            password: null,
+          );
+          await _storageService.saveOrUpdateNote(updated);
+          widget.onNoteSaved?.call(updated);
+          await _loadData();
+          _showToast(
+            'Kunci catatan berhasil dihapus',
+            icon: Icons.lock_open_rounded,
+            iconColor: const Color(0xFF10B981),
+          );
+        } else if (result.action == PasswordManageAction.changed && result.newPassword != null) {
+          final updated = note.copyWith(
+            isLocked: true,
+            password: result.newPassword,
+          );
+          await _storageService.saveOrUpdateNote(updated);
+          widget.onNoteSaved?.call(updated);
+          await _loadData();
+          _showToast(
+            'Kata sandi catatan berhasil diubah',
+            icon: Icons.check_circle_outline_rounded,
+            iconColor: const Color(0xFF10B981),
+          );
+        }
+      }
     }
   }
 
@@ -596,7 +759,44 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
                   },
                 ),
 
-                // 4. Hapus Catatan
+                // 4. Kunci / Kelola Password Catatan
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: note.isLocked
+                          ? const Color(0xFFFEF3C7)
+                          : const Color(0xFFEEF2FF),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      note.isLocked ? Icons.lock_rounded : Icons.lock_outline_rounded,
+                      color: note.isLocked ? const Color(0xFFD97706) : const Color(0xFF4F46E5),
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    note.isLocked ? 'Kelola Kata Sandi' : 'Kunci Catatan',
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                  subtitle: Text(
+                    note.isLocked
+                        ? 'Ubah atau hapus kata sandi catatan'
+                        : 'Lindungi catatan ini dengan kata sandi',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _handleLockNote(note);
+                  },
+                ),
+
+                // 5. Hapus Catatan
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Container(
@@ -951,10 +1151,12 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
                             itemBuilder: (ctx, index) {
                               final note = notes[index];
                               final folder = _getFolderById(note.folderId);
+                              final isFolderLocked = FolderUtils.isFolderOrAncestorLocked(note.folderId, _folders);
                               return NoteCard(
                                 key: ValueKey(note.id),
                                 note: note,
                                 folder: folder,
+                                isFolderLocked: isFolderLocked,
                                 margin: const EdgeInsets.only(bottom: 6),
                                 trailing: ReorderableDragStartListener(
                                   index: index,
@@ -1006,9 +1208,11 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
                             itemBuilder: (ctx, index) {
                               final note = notes[index];
                               final folder = _getFolderById(note.folderId);
+                              final isFolderLocked = FolderUtils.isFolderOrAncestorLocked(note.folderId, _folders);
                               return NoteCard(
                                 note: note,
                                 folder: folder,
+                                isFolderLocked: isFolderLocked,
                                 margin: const EdgeInsets.only(bottom: 10),
                                 onTap: () => _openNoteEditor(note),
                                 onLongPress: () => _showNoteActionMenu(note),

@@ -31,6 +31,30 @@ class FolderUtils {
     return path;
   }
 
+  /// Checks if the given folder or any of its parent ancestors is locked with a valid password.
+  /// Returns the locked folder instance if found, or null if none is locked.
+  static FolderModel? getLockedAncestorFolder(
+    String? folderId,
+    List<FolderModel> allFolders,
+  ) {
+    if (folderId == null) return null;
+    final path = getFolderPath(folderId, allFolders);
+    for (final folder in path) {
+      if (folder.isLocked && folder.password != null && folder.password!.isNotEmpty) {
+        return folder;
+      }
+    }
+    return null;
+  }
+
+  /// Helper to check if a folder (or any of its parent ancestors) is locked
+  static bool isFolderOrAncestorLocked(
+    String? folderId,
+    List<FolderModel> allFolders,
+  ) {
+    return getLockedAncestorFolder(folderId, allFolders) != null;
+  }
+
   /// Returns path as string, e.g. "Pekerjaan > Shift Pagi > Laporan Penjualan"
   static String getFolderPathString(
     String? folderId,
