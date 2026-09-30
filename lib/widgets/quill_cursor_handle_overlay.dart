@@ -421,6 +421,11 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
               onTap: () {
                 _showHandle();
                 HapticFeedback.selectionClick();
+                final rawEditorState =
+                    widget.editorKey.currentState?.editableTextKey.currentState;
+                if (rawEditorState != null) {
+                  rawEditorState.showToolbar();
+                }
               },
               child: SizedBox(
                 width: 48.0,

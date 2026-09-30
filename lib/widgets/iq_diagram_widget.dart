@@ -54,6 +54,12 @@ class IqDiagramWidget extends StatelessWidget {
         return _buildDiceNet();
       case DiagramType.geometricCountVisual:
         return _buildGeometricPattern();
+      case DiagramType.paperFoldVisual:
+        return _buildPaperFoldVisual();
+      case DiagramType.gearRotationVisual:
+        return _buildGearRotationVisual();
+      case DiagramType.vennLogicVisual:
+        return _buildVennLogicVisual();
       case DiagramType.none:
         return const SizedBox.shrink();
     }
@@ -65,6 +71,7 @@ class IqDiagramWidget extends StatelessWidget {
       ['8', '5', '13'],
       ['9', '12', '?'],
     ];
+    final title = diagramData?['title'] as String? ?? 'Matriks Pola Abstrak 3 × 3';
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -75,9 +82,9 @@ class IqDiagramWidget extends StatelessWidget {
             color: const Color(0xFFEEF2FF),
             borderRadius: BorderRadius.circular(20),
           ),
-          child: const Text(
-            'Matriks Pola Abstrak 3 × 3',
-            style: TextStyle(
+          child: Text(
+            title,
+            style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: Color(0xFF4F46E5),
@@ -89,8 +96,15 @@ class IqDiagramWidget extends StatelessWidget {
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: const Color(0xFFCBD5E1)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Column(
             children: grid.map((row) {
@@ -100,14 +114,14 @@ class IqDiagramWidget extends StatelessWidget {
                 children: rowList.map((val) {
                   final isQuestionMark = val.toString() == '?';
                   return Container(
-                    width: 58,
-                    height: 48,
+                    width: 62,
+                    height: 52,
                     margin: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       color: isQuestionMark
                           ? const Color(0xFFFEF3C7)
                           : const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: isQuestionMark
                             ? const Color(0xFFF59E0B)
@@ -120,7 +134,7 @@ class IqDiagramWidget extends StatelessWidget {
                         val.toString(),
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: isQuestionMark ? 20 : 15,
+                          fontSize: isQuestionMark ? 22 : 16,
                           fontWeight: FontWeight.w800,
                           color: isQuestionMark
                               ? const Color(0xFFD97706)
@@ -148,7 +162,7 @@ class IqDiagramWidget extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFCBD5E1)),
       ),
       child: Column(
@@ -159,12 +173,12 @@ class IqDiagramWidget extends StatelessWidget {
             children: rowList.map((val) {
               final isTarget = val.toString() == '?';
               return Container(
-                width: 64,
-                height: 54,
+                width: 68,
+                height: 58,
                 margin: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
                   color: isTarget ? const Color(0xFFFEF3C7) : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: isTarget ? const Color(0xFFF59E0B) : const Color(0xFFCBD5E1),
                     width: isTarget ? 2 : 1,
@@ -174,8 +188,8 @@ class IqDiagramWidget extends StatelessWidget {
                   child: Text(
                     val.toString(),
                     style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
                       color: isTarget ? const Color(0xFFD97706) : const Color(0xFF1E293B),
                     ),
                   ),
@@ -189,12 +203,12 @@ class IqDiagramWidget extends StatelessWidget {
   }
 
   Widget _buildShapeSequence() {
-    final shapes = [
-      {'name': 'Segitiga', 'sides': 3, 'icon': Icons.change_history_rounded},
-      {'name': 'Persegi', 'sides': 4, 'icon': Icons.crop_square_rounded},
-      {'name': 'Segilima', 'sides': 5, 'icon': Icons.pentagon_outlined},
-      {'name': 'Segienam', 'sides': 6, 'icon': Icons.hexagon_outlined},
-      {'name': '?', 'sides': '?', 'icon': Icons.help_outline_rounded},
+    final shapes = (diagramData?['items'] as List?) ?? [
+      {'name': 'Segitiga', 'sides': '3 sisi', 'icon': Icons.change_history_rounded},
+      {'name': 'Persegi', 'sides': '4 sisi', 'icon': Icons.crop_square_rounded},
+      {'name': 'Segilima', 'sides': '5 sisi', 'icon': Icons.pentagon_outlined},
+      {'name': 'Segienam', 'sides': '6 sisi', 'icon': Icons.hexagon_outlined},
+      {'name': '?', 'sides': '? sisi', 'icon': Icons.help_outline_rounded},
     ];
 
     return SingleChildScrollView(
@@ -203,14 +217,14 @@ class IqDiagramWidget extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: shapes.asMap().entries.map((entry) {
           final index = entry.key;
-          final s = entry.value;
+          final s = entry.value as Map;
           final isTarget = index == shapes.length - 1;
 
           return Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: isTarget ? const Color(0xFFFEF3C7) : Colors.white,
                   borderRadius: BorderRadius.circular(12),
@@ -218,36 +232,48 @@ class IqDiagramWidget extends StatelessWidget {
                     color: isTarget
                         ? const Color(0xFFF59E0B)
                         : const Color(0xFFCBD5E1),
-                    width: isTarget ? 1.8 : 1.0,
+                    width: isTarget ? 2.0 : 1.0,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF0F172A).withValues(alpha: 0.03),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Column(
                   children: [
                     Icon(
-                      s['icon'] as IconData,
-                      size: 30,
+                      s['icon'] is IconData
+                          ? s['icon'] as IconData
+                          : isTarget
+                              ? Icons.help_outline_rounded
+                              : Icons.category_rounded,
+                      size: 28,
                       color: isTarget
                           ? const Color(0xFFD97706)
                           : const Color(0xFF4F46E5),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      s['name'] as String,
+                      s['name']?.toString() ?? '',
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         color: isTarget
                             ? const Color(0xFFB45309)
-                            : const Color(0xFF334155),
+                            : const Color(0xFF1E293B),
                       ),
                     ),
-                    Text(
-                      '(${s['sides']} sisi)',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: Color(0xFF64748B),
+                    if (s['sides'] != null)
+                      Text(
+                        s['sides'].toString(),
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -269,36 +295,34 @@ class IqDiagramWidget extends StatelessWidget {
   }
 
   Widget _buildGridRotation() {
+    final steps = (diagramData?['rotations'] as List?)?.cast<String>() ?? [
+      '+90° (Searah Jarum)',
+      '-180° (Berlawanan)',
+      '+45° (Searah Jarum)',
+    ];
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFCBD5E1)),
       ),
-      child: Column(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildMiniCompass(
-                title: 'Posisi Awal',
-                angle: 0,
-                color: const Color(0xFF3B82F6),
-              ),
-              const SizedBox(width: 16),
-              const Icon(
-                Icons.sync_rounded,
-                color: Color(0xFF6366F1),
-                size: 24,
-              ),
-              const SizedBox(width: 16),
-              _buildMiniRotationCard(
-                steps: ['+90° (Searah Jarum)', '-180° (Berlawanan)', '+45° (Searah Jarum)'],
-              ),
-            ],
+          _buildMiniCompass(
+            title: 'Posisi Awal',
+            color: const Color(0xFF3B82F6),
           ),
+          const SizedBox(width: 16),
+          const Icon(
+            Icons.sync_rounded,
+            color: Color(0xFF6366F1),
+            size: 26,
+          ),
+          const SizedBox(width: 16),
+          _buildMiniRotationCard(steps: steps),
         ],
       ),
     );
@@ -306,7 +330,6 @@ class IqDiagramWidget extends StatelessWidget {
 
   Widget _buildMiniCompass({
     required String title,
-    required double angle,
     required Color color,
   }) {
     return Column(
@@ -321,8 +344,8 @@ class IqDiagramWidget extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Container(
-          width: 56,
-          height: 56,
+          width: 58,
+          height: 58,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: const Color(0xFFF1F5F9),
@@ -344,7 +367,7 @@ class IqDiagramWidget extends StatelessWidget {
               ),
               Icon(
                 Icons.navigation_rounded,
-                size: 24,
+                size: 26,
                 color: Color(0xFF3B82F6),
               ),
             ],
@@ -359,7 +382,7 @@ class IqDiagramWidget extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Tahapan Rotasi:',
+          'Tahapan Rotasi Sudut:',
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
@@ -381,8 +404,8 @@ class IqDiagramWidget extends StatelessWidget {
                 Text(
                   step,
                   style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
                     color: Color(0xFF1E293B),
                   ),
                 ),
@@ -399,13 +422,13 @@ class IqDiagramWidget extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFCBD5E1)),
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.casino_outlined, color: Color(0xFF4F46E5), size: 36),
+          Icon(Icons.casino_outlined, color: Color(0xFF4F46E5), size: 38),
           SizedBox(width: 14),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,16 +436,16 @@ class IqDiagramWidget extends StatelessWidget {
               Text(
                 'Kaidah Dadu Standar 6 Sisi',
                 style: TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: Color(0xFF1E293B),
                 ),
               ),
               SizedBox(height: 2),
               Text(
-                'Sisi Berhadapan: Jumlah Titik SELALU = 7',
+                'Dua Sisi Berhadapan: Jumlah Titik SELALU = 7',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF059669),
                 ),
@@ -435,48 +458,108 @@ class IqDiagramWidget extends StatelessWidget {
   }
 
   Widget _buildScaleBalance() {
+    final scale1Left = diagramData?['scale1Left'] ?? '2 🍎 Apel';
+    final scale1Right = diagramData?['scale1Right'] ?? '1 🥭 Mangga';
+    final scale2Left = diagramData?['scale2Left'] ?? '3 🥭 Mangga';
+    final scale2Right = diagramData?['scale2Right'] ?? '1 🍈 Melon';
+
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFCBD5E1)),
       ),
-      child: const Column(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
+          const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.scale_rounded, color: Color(0xFFD97706), size: 28),
+              Icon(Icons.scale_rounded, color: Color(0xFFD97706), size: 26),
               SizedBox(width: 8),
               Text(
                 'Keseimbangan Neraca Timbangan:',
                 style: TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: Color(0xFF334155),
                 ),
               ),
             ],
           ),
-          SizedBox(height: 10),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '2 🍎 Apel  =  1 🥭 Mangga',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Text(
+              '⚖️  Neraca 1:  $scale1Left  =  $scale1Right',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1E293B),
               ),
-            ],
+            ),
           ),
-          SizedBox(height: 4),
-          Row(
-            mainAxisSize: MainAxisSize.min,
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Text(
+              '⚖️  Neraca 2:  $scale2Left  =  $scale2Right',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGeometricPattern() {
+    final title = diagramData?['title'] as String? ?? 'Kubus Berdimensi 3 × 3 × 3';
+    final subtitle = diagramData?['subtitle'] as String? ?? 'Total: 27 unit kubus kecil (1×1×1)';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.view_in_ar_rounded, color: Color(0xFF4F46E5), size: 38),
+          const SizedBox(width: 14),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '3 🥭 Mangga  =  1 🍈 Melon',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  color: Color(0xFF64748B),
+                ),
               ),
             ],
           ),
@@ -485,34 +568,116 @@ class IqDiagramWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildGeometricPattern() {
+  Widget _buildPaperFoldVisual() {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFCBD5E1)),
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.view_in_ar_rounded, color: Color(0xFF4F46E5), size: 36),
+          Icon(Icons.content_cut_rounded, color: Color(0xFFEC4899), size: 32),
           SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Kubus Berdimensi 3 × 3 × 3',
+                'Lipatan Kertas Simetris',
                 style: TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: Color(0xFF1E293B),
                 ),
               ),
               Text(
-                'Total: 27 unit kubus kecil (1×1×1)',
+                'Lipat 1 (Horisontal) ➔ Lipat 2 (Vertikal) ➔ Buat 1 Lubang',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGearRotationVisual() {
+    final gearA = diagramData?['gearA'] as String? ?? 'Gear A (Searah Jarum / CW)';
+    final gearB = diagramData?['gearB'] as String? ?? 'Gear B (Berlawanan / CCW)';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.settings_suggest_rounded, color: Color(0xFF6366F1), size: 28),
+              SizedBox(width: 8),
+              Text(
+                'Sistem Roda Gigi (Gears System)',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '⚙️ $gearA saling bersinggungan dengan ⚙️ $gearB',
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF475569),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVennLogicVisual() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.bubble_chart_rounded, color: Color(0xFF10B981), size: 34),
+          SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Himpunan Logika Kategori (Venn Sets)',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              Text(
+                'Analisis irisan relasi kondisi dan eliminasi logika',
+                style: TextStyle(
+                  fontSize: 11.5,
                   color: Color(0xFF64748B),
                 ),
               ),

@@ -150,6 +150,9 @@ enum DiagramType {
   scaleBalanceVisual,
   diceNetVisual,
   geometricCountVisual,
+  paperFoldVisual,
+  gearRotationVisual,
+  vennLogicVisual,
 }
 
 class IqQuestion {

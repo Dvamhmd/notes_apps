@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../services/rich_clipboard_service.dart';
 
 /// Custom Material TextSelectionControls that provides prominent, touch-friendly
 /// Android-style teardrop/circular handles for text selection and cursor positioning,
@@ -58,9 +60,73 @@ class CustomTouchTextSelectionControls extends MaterialTextSelectionControls {
     return handle;
   }
 
-  // ignore: deprecated_member_use
   @override
-  bool canPaste(TextSelectionDelegate delegate) => false;
+  bool canPaste(TextSelectionDelegate delegate) => true;
+
+  @override
+  bool canCopy(TextSelectionDelegate delegate) =>
+      !delegate.textEditingValue.selection.isCollapsed;
+
+  @override
+  bool canCut(TextSelectionDelegate delegate) =>
+      !delegate.textEditingValue.selection.isCollapsed;
+
+  @override
+  void handleCopy(TextSelectionDelegate delegate) {
+    final controller = RichClipboardService.activeController;
+    if (controller != null && !controller.selection.isCollapsed) {
+      RichClipboardService.copySelection(controller);
+    } else {
+      final text = delegate.textEditingValue.selection.textInside(delegate.textEditingValue.text);
+      Clipboard.setData(ClipboardData(text: text));
+    }
+    delegate.bringIntoView(delegate.textEditingValue.selection.extent);
+    delegate.hideToolbar();
+  }
+
+  @override
+  void handleCut(TextSelectionDelegate delegate) {
+    final controller = RichClipboardService.activeController;
+    if (controller != null && !controller.selection.isCollapsed) {
+      RichClipboardService.cutSelection(controller);
+    } else {
+      final text = delegate.textEditingValue.selection.textInside(delegate.textEditingValue.text);
+      Clipboard.setData(ClipboardData(text: text));
+      delegate.userUpdateTextEditingValue(
+        delegate.textEditingValue.copyWith(
+          text: delegate.textEditingValue.selection.textBefore(delegate.textEditingValue.text) +
+              delegate.textEditingValue.selection.textAfter(delegate.textEditingValue.text),
+          selection: TextSelection.collapsed(offset: delegate.textEditingValue.selection.start),
+        ),
+        SelectionChangedCause.toolbar,
+      );
+    }
+    delegate.hideToolbar();
+  }
+
+  @override
+  Future<void> handlePaste(TextSelectionDelegate delegate) async {
+    final controller = RichClipboardService.activeController;
+    if (controller != null) {
+      await RichClipboardService.paste(controller);
+    } else {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (data != null && data.text != null) {
+        delegate.userUpdateTextEditingValue(
+          delegate.textEditingValue.copyWith(
+            text: delegate.textEditingValue.selection.textBefore(delegate.textEditingValue.text) +
+                data.text! +
+                delegate.textEditingValue.selection.textAfter(delegate.textEditingValue.text),
+            selection: TextSelection.collapsed(
+              offset: delegate.textEditingValue.selection.start + data.text!.length,
+            ),
+          ),
+          SelectionChangedCause.toolbar,
+        );
+      }
+    }
+    delegate.hideToolbar();
+  }
 
   // ignore: deprecated_member_use
   @override

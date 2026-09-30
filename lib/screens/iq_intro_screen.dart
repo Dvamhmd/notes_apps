@@ -205,14 +205,14 @@ class _IqIntroScreenState extends State<IqIntroScreen> {
     ).then((_) => _loadHistory());
   }
 
-  Future<void> _confirmClearHistory() async {
+  Future<void> _confirmDeleteSingleHistory(IqTestResult item) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Hapus Riwayat Tes?'),
-        content: const Text(
-          'Semua riwayat hasil tes IQ yang tersimpan akan dihapus secara permanen dari perangkat ini.',
+        title: const Text('Hapus Sesi Tes Ini?'),
+        content: Text(
+          'Hasil tes IQ ${item.iqScore} (${item.classification.label}) ini akan dihapus dari riwayat perangkat.',
         ),
         actions: [
           TextButton(
@@ -232,8 +232,58 @@ class _IqIntroScreenState extends State<IqIntroScreen> {
     );
 
     if (confirmed == true) {
+      await _iqService.deleteResult(item.id);
+      _loadHistory();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sesi tes berhasil dihapus dari riwayat'),
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmClearHistory() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Hapus Semua Riwayat Tes?'),
+        content: const Text(
+          'Semua riwayat hasil tes IQ yang tersimpan akan dihapus secara permanen dari perangkat ini.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Hapus Semua'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
       await _iqService.clearHistory();
       _loadHistory();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Seluruh riwayat tes berhasil dibersihkan'),
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -474,7 +524,7 @@ class _IqIntroScreenState extends State<IqIntroScreen> {
           _buildRuleItem(
             icon: Icons.shuffle_rounded,
             title: 'Bank Soal Dinamis',
-            value: '25 Soal Acak Seimbang (Mencegah efek hafalan saat tes ulang)',
+            value: '25 Soal Acak Seimbang dari 75+ Bank Soal (Bebas efek hafalan saat tes ulang)',
           ),
           _buildRuleItem(
             icon: Icons.timer_outlined,
@@ -716,6 +766,15 @@ class _IqIntroScreenState extends State<IqIntroScreen> {
                           ),
                         ],
                       ),
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.delete_outline_rounded,
+                        color: Color(0xFF94A3B8),
+                        size: 20,
+                      ),
+                      tooltip: 'Hapus Sesi Ini',
+                      onPressed: () => _confirmDeleteSingleHistory(item),
                     ),
                     const Icon(
                       Icons.chevron_right_rounded,

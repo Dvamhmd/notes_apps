@@ -39,8 +39,8 @@ class IqService {
       final weight = q.difficulty == 1
           ? 1.0
           : q.difficulty == 2
-              ? 1.5
-              : 2.0;
+              ? 1.6
+              : 2.3;
 
       maxWeightedScore += weight;
       categoryMax[q.category] = (categoryMax[q.category] ?? 0.0) + weight;
@@ -75,13 +75,13 @@ class IqService {
     final double ageAdjustedRatio = (rawRatio * ageGroup.normFactor).clamp(0.0, 1.0);
 
     // Indeks Efisiensi Kecepatan & Ketelitian (Speed-Accuracy Index)
-    // Waktu batas = 1500 detik (25 menit). Waktu optimal = 600 - 1100 detik.
+    // Waktu batas = 1500 detik (25 menit). Waktu optimal = 480 - 1100 detik.
     double speedAccuracyIndex = 70.0;
     double timeBonus = 0.0;
 
     if (durationSeconds > 0) {
       final double speedRatio = (1500 - durationSeconds).clamp(0, 1200) / 1200.0;
-      speedAccuracyIndex = (rawRatio * 60.0) + (speedRatio * 40.0);
+      speedAccuracyIndex = (rawRatio * 65.0) + (speedRatio * 35.0);
 
       // Bonus waktu hanya berlaku jika akurasi tinggi (mencegah tebakan cepat acak)
       if (rawRatio >= 0.60 && durationSeconds >= 240) {
@@ -96,10 +96,10 @@ class IqService {
       calculatedIq = 70;
     } else {
       // Model transformasi non-linier respons kognitif psikometri
-      double estimatedIq = 70.0 + (ageAdjustedRatio * 74.0) + timeBonus;
+      double estimatedIq = 70.0 + (ageAdjustedRatio * 72.0) + timeBonus;
       if (ageAdjustedRatio > 0.85) {
         // Curve boost untuk kategori Mensa / Superior Atas
-        estimatedIq += (ageAdjustedRatio - 0.85) * 22.0;
+        estimatedIq += (ageAdjustedRatio - 0.85) * 24.0;
       }
       calculatedIq = estimatedIq.round().clamp(70, 150);
     }
@@ -150,6 +150,15 @@ class IqService {
     // Batasi riwayat maksimum 20 tes terakhir
     final limited = currentHistory.take(20).toList();
     final stringList = limited.map((r) => jsonEncode(r.toJson())).toList();
+    await prefs.setStringList(_historyKey, stringList);
+  }
+
+  /// Menghapus satu riwayat tes berdasarkan ID
+  Future<void> deleteResult(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final currentHistory = await getHistory();
+    currentHistory.removeWhere((r) => r.id == id);
+    final stringList = currentHistory.map((r) => jsonEncode(r.toJson())).toList();
     await prefs.setStringList(_historyKey, stringList);
   }
 

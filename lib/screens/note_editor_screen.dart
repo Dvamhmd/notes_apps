@@ -58,6 +58,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
     _lineSpacing = widget.note.lineSpacing ?? 1.6;
 
     _initQuill();
+    RichClipboardService.activeController = _quillController;
 
     _titleController.addListener(_scheduleAutoSave);
     _quillController.addListener(_scheduleAutoSave);
@@ -83,6 +84,9 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
 
   @override
   void dispose() {
+    if (RichClipboardService.activeController == _quillController) {
+      RichClipboardService.activeController = null;
+    }
     _debounceTimer?.cancel();
     _saveImmediately();
     _titleController.dispose();
@@ -593,6 +597,18 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                               return null;
                             },
                           ),
+                          SelectAllTextIntent: CallbackAction<SelectAllTextIntent>(
+                            onInvoke: (intent) {
+                              final docLength = _quillController.document.length;
+                              if (docLength > 1) {
+                                _quillController.updateSelection(
+                                  TextSelection(baseOffset: 0, extentOffset: docLength - 1),
+                                  ChangeSource.local,
+                                );
+                              }
+                              return null;
+                            },
+                          ),
                         },
                         child: QuillCursorHandleOverlay(
                           controller: _quillController,
@@ -626,36 +642,68 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                               );
                             },
                             contextMenuBuilder: (context, rawEditorState) {
-                              final buttonItems = rawEditorState.contextMenuButtonItems;
+                              final selection = _quillController.selection;
+                              final isCollapsed = selection.isCollapsed;
+
+                              final items = <ContextMenuButtonItem>[];
+
+                              if (!isCollapsed) {
+                                items.add(
+                                  ContextMenuButtonItem(
+                                    type: ContextMenuButtonType.cut,
+                                    label: 'Potong',
+                                    onPressed: () {
+                                      RichClipboardService.cutSelection(_quillController);
+                                      rawEditorState.hideToolbar();
+                                    },
+                                  ),
+                                );
+                                items.add(
+                                  ContextMenuButtonItem(
+                                    type: ContextMenuButtonType.copy,
+                                    label: 'Salin',
+                                    onPressed: () {
+                                      RichClipboardService.copySelection(_quillController);
+                                      rawEditorState.hideToolbar();
+                                    },
+                                  ),
+                                );
+                              }
+
+                              items.add(
+                                ContextMenuButtonItem(
+                                  type: ContextMenuButtonType.paste,
+                                  label: 'Tempel',
+                                  onPressed: () async {
+                                    await RichClipboardService.paste(_quillController);
+                                    rawEditorState.hideToolbar();
+                                  },
+                                ),
+                              );
+
+                              items.add(
+                                ContextMenuButtonItem(
+                                  type: ContextMenuButtonType.selectAll,
+                                  label: 'Pilih Semua',
+                                  onPressed: () {
+                                    rawEditorState.selectAll(SelectionChangedCause.toolbar);
+                                  },
+                                ),
+                              );
+
+                              // Append any additional system/custom items (like share)
+                              for (final rawItem in rawEditorState.contextMenuButtonItems) {
+                                if (rawItem.type != ContextMenuButtonType.cut &&
+                                    rawItem.type != ContextMenuButtonType.copy &&
+                                    rawItem.type != ContextMenuButtonType.paste &&
+                                    rawItem.type != ContextMenuButtonType.selectAll) {
+                                  items.add(rawItem);
+                                }
+                              }
+
                               return AdaptiveTextSelectionToolbar.buttonItems(
                                 anchors: rawEditorState.contextMenuAnchors,
-                                buttonItems: buttonItems.map((item) {
-                                  if (item.type == ContextMenuButtonType.copy) {
-                                    return item.copyWith(
-                                      onPressed: () {
-                                        RichClipboardService.copySelection(_quillController);
-                                        rawEditorState.hideToolbar();
-                                      },
-                                    );
-                                  }
-                                  if (item.type == ContextMenuButtonType.cut) {
-                                    return item.copyWith(
-                                      onPressed: () {
-                                        RichClipboardService.cutSelection(_quillController);
-                                        rawEditorState.hideToolbar();
-                                      },
-                                    );
-                                  }
-                                  if (item.type == ContextMenuButtonType.paste) {
-                                    return item.copyWith(
-                                      onPressed: () async {
-                                        await RichClipboardService.paste(_quillController);
-                                        rawEditorState.hideToolbar();
-                                      },
-                                    );
-                                  }
-                                  return item;
-                                }).toList(),
+                                buttonItems: items,
                               );
                             },
                             scrollable: true,

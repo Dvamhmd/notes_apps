@@ -3,16 +3,21 @@ import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_quill/quill_delta.dart';
 
 /// Service that preserves rich text formatting (bold, italic, underline, color,
-/// headings, lists, highlights, etc.) when copying and pasting notes.
+/// background highlight, headings, lists, font size, align, line height, etc.)
+/// when copying and pasting notes across Android and Web.
 class RichClipboardService {
   static Delta? _cachedRichDelta;
   static String? _cachedPlainText;
+  static QuillController? activeController;
 
   /// Returns the current cached rich delta if available
   static Delta? get cachedRichDelta => _cachedRichDelta;
 
   /// Returns the current cached plain text
   static String? get cachedPlainText => _cachedPlainText;
+
+  /// Returns true if rich clipboard data is currently held
+  static bool get hasData => _cachedRichDelta != null && _cachedPlainText != null;
 
   /// Set rich clipboard data directly
   static void setRichData(Delta delta, String plainText) {
@@ -44,7 +49,9 @@ class RichClipboardService {
     _cachedPlainText = plainText;
 
     // Also update system clipboard with clean plain text
-    await Clipboard.setData(ClipboardData(text: plainText));
+    try {
+      await Clipboard.setData(ClipboardData(text: plainText));
+    } catch (_) {}
   }
 
   /// Cuts the currently selected text and copies its rich text attributes.
@@ -68,7 +75,8 @@ class RichClipboardService {
   }
 
   /// Pastes clipboard content. If rich formatting is available for the copied text,
-  /// it inserts the text preserving all rich formatting. Otherwise, it pastes plain text.
+  /// it inserts the text preserving all rich formatting (color, size, style, align, etc.).
+  /// Otherwise, it pastes plain text from system clipboard.
   static Future<bool> paste(QuillController controller) async {
     String? clipText;
     try {
@@ -85,8 +93,17 @@ class RichClipboardService {
     final end = selection.end.clamp(0, docLength > 0 ? docLength - 1 : 0);
     final length = selection.isCollapsed ? 0 : (end - start);
 
+    // Normalize strings for comparison across platforms (Android trailing \r\n or whitespace)
+    final normClip = clipText?.replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim();
+    final normCached = _cachedPlainText?.replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim();
+
+    final isMatchingRich = _cachedRichDelta != null &&
+        (clipText == null ||
+         _cachedPlainText == clipText ||
+         (normClip != null && normCached != null && normClip == normCached));
+
     // If the system clipboard matches our cached plain text, use the rich formatted Delta!
-    if (_cachedRichDelta != null && (clipText == null || _cachedPlainText == clipText)) {
+    if (isMatchingRich && _cachedRichDelta != null) {
       insertDeltaAt(controller, start, length, _cachedRichDelta!);
       return true;
     }
@@ -101,7 +118,8 @@ class RichClipboardService {
     return true;
   }
 
-  /// Inserts a rich Delta at the specified offset, replacing [replaceLength] characters.
+  /// Inserts a rich Delta at the specified offset, replacing [replaceLength] characters,
+  /// perfectly preserving all inline and block attributes.
   static void insertDeltaAt(
     QuillController controller,
     int start,

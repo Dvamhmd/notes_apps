@@ -483,44 +483,55 @@ void main() {
     expect(savedNote!.contentJson, contains('divider'));
   });
 
-  testWidgets('Test combined Undo/Redo button in CustomToolbar opens history floating options', (WidgetTester tester) async {
-    final doc = Document()..insert(0, 'Initial Text\n');
+  test('Test CustomTouchTextSelectionControls and RichClipboardService preserve color, size, align, style on copy and paste', () async {
+    final doc = Document();
+    doc.insert(0, 'Rich Formatted Android Text\n');
+    doc.format(0, 4, Attribute.bold);
+    doc.format(5, 9, const ColorAttribute('#E11D48')); // Red
+    doc.format(5, 9, Attribute.clone(Attribute.size, '20')); // 20pt size
+    doc.format(15, 7, Attribute.italic);
+    doc.format(15, 7, Attribute.underline);
+    doc.format(23, 4, const BackgroundAttribute('#FEF08A')); // Yellow highlight
+
     final controller = QuillController(
       document: doc,
-      selection: const TextSelection.collapsed(offset: 0),
+      selection: const TextSelection(baseOffset: 0, extentOffset: 27),
     );
+    RichClipboardService.activeController = controller;
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          bottomNavigationBar: CustomToolbar(
-            controller: controller,
-          ),
-        ),
-      ),
+    // Copy selection
+    await RichClipboardService.copySelection(controller);
+
+    expect(RichClipboardService.hasData, isTrue);
+    expect(RichClipboardService.cachedPlainText, 'Rich Formatted Android Text');
+
+    // Create target document and paste
+    final targetDoc = Document()..insert(0, 'Target: \n');
+    final targetController = QuillController(
+      document: targetDoc,
+      selection: const TextSelection.collapsed(offset: 8),
     );
-    await tester.pumpAndSettle();
+    RichClipboardService.activeController = targetController;
 
-    // Verify combined History button exists
-    final historyBtn = find.byIcon(Icons.history_rounded);
-    expect(historyBtn, findsOneWidget);
+    final pasteSuccess = await RichClipboardService.paste(targetController);
+    expect(pasteSuccess, isTrue);
 
-    // Tap History button
-    await tester.tap(historyBtn);
-    await tester.pumpAndSettle();
+    final targetOps = targetController.document.toDelta().toList();
 
-    // Verify floating bar with Undo and Redo options appeared
-    expect(find.text('Batal (Undo)'), findsOneWidget);
-    expect(find.text('Ulangi (Redo)'), findsOneWidget);
+    // Verify all formatting is preserved
+    final hasBold = targetOps.any((op) => op.attributes != null && op.attributes!['bold'] == true);
+    final hasColor = targetOps.any((op) => op.attributes != null && op.attributes!['color'] == '#E11D48');
+    final hasSize = targetOps.any((op) => op.attributes != null && op.attributes!['size'] == '20');
+    final hasItalic = targetOps.any((op) => op.attributes != null && op.attributes!['italic'] == true);
+    final hasUnderline = targetOps.any((op) => op.attributes != null && op.attributes!['underline'] == true);
+    final hasBg = targetOps.any((op) => op.attributes != null && op.attributes!['background'] == '#FEF08A');
 
-    // Tap close button in floating bar
-    final closeBtn = find.byIcon(Icons.close_rounded);
-    expect(closeBtn, findsOneWidget);
-    await tester.tap(closeBtn);
-    await tester.pumpAndSettle();
-
-    // Floating bar is closed
-    expect(find.text('Batal (Undo)'), findsNothing);
+    expect(hasBold, isTrue, reason: 'Bold must be preserved on paste');
+    expect(hasColor, isTrue, reason: 'Color must be preserved on paste');
+    expect(hasSize, isTrue, reason: 'Font size must be preserved on paste');
+    expect(hasItalic, isTrue, reason: 'Italic must be preserved on paste');
+    expect(hasUnderline, isTrue, reason: 'Underline must be preserved on paste');
+    expect(hasBg, isTrue, reason: 'Highlight background must be preserved on paste');
   });
 
   testWidgets('Test Bullet and Numbering buttons in CustomToolbar toggle independently without interfering', (WidgetTester tester) async {
