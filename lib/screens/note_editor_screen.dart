@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_quill/flutter_quill.dart';
@@ -204,6 +205,130 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
         ),
       ),
     );
+  }
+
+  double _resolveEffectiveFontSize(dynamic node, dynamic config) {
+    // 1. Check direct attributes on node.style
+    if (node != null && node.style != null) {
+      final sizeAttr = node.style.attributes[Attribute.size.key];
+      if (sizeAttr != null && sizeAttr.value != null) {
+        final s = _parseSizeValue(sizeAttr.value);
+        if (s != null) return s;
+      }
+      final headerAttr = node.style.attributes[Attribute.header.key];
+      if (headerAttr != null && headerAttr.value != null) {
+        final h = _parseHeaderValue(headerAttr.value);
+        if (h != null) return h;
+      }
+    }
+
+    // 2. Check child leaves within the line
+    try {
+      if (node != null && node.children != null) {
+        for (final child in node.children) {
+          if (child != null && child.style != null) {
+            final sizeAttr = child.style.attributes[Attribute.size.key];
+            if (sizeAttr != null && sizeAttr.value != null) {
+              final s = _parseSizeValue(sizeAttr.value);
+              if (s != null) return s;
+            }
+            final headerAttr = child.style.attributes[Attribute.header.key];
+            if (headerAttr != null && headerAttr.value != null) {
+              final h = _parseHeaderValue(headerAttr.value);
+              if (h != null) return h;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 3. Check config.style
+    if (config != null && config.style != null && config.style.fontSize != null) {
+      return config.style.fontSize!;
+    }
+
+    return 15.0;
+  }
+
+  double? _parseSizeValue(dynamic value) {
+    if (value == null) return null;
+    final str = value.toString().trim().toLowerCase();
+    if (str == 'small') return 12.0;
+    if (str == 'normal') return 15.0;
+    if (str == 'large') return 20.0;
+    if (str == 'huge') return 26.0;
+    final num = double.tryParse(str);
+    if (num != null && num > 0) return num;
+    return null;
+  }
+
+  double? _parseHeaderValue(dynamic value) {
+    if (value == null) return null;
+    if (value == 1 || value == '1' || value == 'h1') return 24.0;
+    if (value == 2 || value == '2' || value == 'h2') return 20.0;
+    if (value == 3 || value == '3' || value == 'h3') return 17.0;
+    return null;
+  }
+
+  Color _resolveEffectiveColor(dynamic node, dynamic config) {
+    try {
+      if (node != null && node.children != null) {
+        for (final child in node.children) {
+          if (child != null && child.style != null) {
+            final colorAttr = child.style.attributes[Attribute.color.key];
+            if (colorAttr != null && colorAttr.value != null) {
+              final c = _parseColorValue(colorAttr.value);
+              if (c != null) return c;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (node != null && node.style != null) {
+      final colorAttr = node.style.attributes[Attribute.color.key];
+      if (colorAttr != null && colorAttr.value != null) {
+        final c = _parseColorValue(colorAttr.value);
+        if (c != null) return c;
+      }
+    }
+
+    if (config != null && config.style != null && config.style.color != null) {
+      return config.style.color!;
+    }
+
+    return const Color(0xFF1E293B);
+  }
+
+  Color? _parseColorValue(dynamic value) {
+    if (value == null) return null;
+    try {
+      final hexStr = value.toString().replaceAll('#', '');
+      if (hexStr.length == 6) {
+        return Color(int.parse('FF$hexStr', radix: 16));
+      } else if (hexStr.length == 8) {
+        return Color(int.parse(hexStr, radix: 16));
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  FontWeight _resolveEffectiveFontWeight(dynamic node, dynamic config) {
+    try {
+      if (node != null && node.children != null) {
+        for (final child in node.children) {
+          if (child != null && child.style != null) {
+            if (child.style.attributes.containsKey(Attribute.bold.key)) {
+              return FontWeight.w700;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+    if (node != null && node.style != null && node.style.attributes.containsKey(Attribute.bold.key)) {
+      return FontWeight.w700;
+    }
+    return FontWeight.w500;
   }
 
   @override
@@ -561,41 +686,64 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                                   return TextStyle(height: h);
                                 }
                               }
+                              if (attribute.key == Attribute.size.key) {
+                                final val = attribute.value;
+                                if (val != null) {
+                                  if (val == 'small') return const TextStyle(fontSize: 12);
+                                  if (val == 'normal') return const TextStyle(fontSize: 15);
+                                  if (val == 'large') return const TextStyle(fontSize: 20);
+                                  if (val == 'huge') return const TextStyle(fontSize: 26);
+                                  final size = double.tryParse(val.toString());
+                                  if (size != null) {
+                                    return TextStyle(fontSize: size);
+                                  }
+                                }
+                              }
                               return const TextStyle();
                             },
                             // ignore: experimental_member_use
                             customLeadingBlockBuilder: (node, config) {
+                              final effectiveFontSize = _resolveEffectiveFontSize(node, config);
+                              final effectiveColor = _resolveEffectiveColor(node, config);
+                              final effectiveFontWeight = _resolveEffectiveFontWeight(node, config);
+
                               final blockHeightAttr = node.style.attributes[Attribute.lineHeight.key];
                               final customHeight = blockHeightAttr?.value != null
                                   ? double.tryParse(blockHeightAttr!.value.toString())
                                   : null;
                               final effectiveHeight = customHeight ?? 1.6;
 
-                              final baseListStyle = TextStyle(
-                                fontFamily: 'Poppins',
-                                fontSize: 15,
-                                color: const Color(0xFF1E293B),
-                                height: effectiveHeight,
-                              );
-                              final effectiveStyle = (config.style ?? baseListStyle).copyWith(
-                                fontFamily: 'Poppins',
-                                fontSize: 15,
-                                height: effectiveHeight,
-                              );
-                              final firstLineHeight = 15.0 * effectiveHeight;
+                              // The list line in Flutter Quill has a minimum bounding strut of 15.0 pt
+                              // and expands when text font size is larger than 15.0 pt.
+                              final nominalFontSize = math.max(15.0, effectiveFontSize);
+                              final lineBoxHeight = nominalFontSize * effectiveHeight;
 
                               if (config.attribute == Attribute.ul) {
+                                final bulletSize = (effectiveFontSize * 0.38).clamp(3.5, 14.0);
+                                final leadingWidth = (effectiveFontSize * 1.7).clamp(24.0, 48.0);
+                                final paddingEnd = (effectiveFontSize * 0.45).clamp(6.0, 16.0);
+
+                                // Optical vertical center calculation for Poppins text glyphs
+                                final baselineY = (lineBoxHeight / 2) + (nominalFontSize * 0.35);
+                                final opticalCenterY = baselineY - (effectiveFontSize * 0.35);
+                                final bulletTop = (opticalCenterY - (bulletSize / 2)).clamp(0.0, lineBoxHeight - bulletSize);
+
                                 return Container(
-                                  width: config.width ?? 28.0,
-                                  height: firstLineHeight,
-                                  padding: EdgeInsetsDirectional.only(end: config.padding ?? 8.0),
-                                  alignment: AlignmentDirectional.centerEnd,
-                                  child: Container(
-                                    width: 5.5,
-                                    height: 5.5,
-                                    decoration: BoxDecoration(
-                                      color: effectiveStyle.color ?? const Color(0xFF1E293B),
-                                      shape: BoxShape.circle,
+                                  width: leadingWidth,
+                                  height: lineBoxHeight,
+                                  padding: EdgeInsetsDirectional.only(end: paddingEnd),
+                                  child: Align(
+                                    alignment: AlignmentDirectional.topEnd,
+                                    child: Padding(
+                                      padding: EdgeInsets.only(top: bulletTop),
+                                      child: Container(
+                                        width: bulletSize,
+                                        height: bulletSize,
+                                        decoration: BoxDecoration(
+                                          color: effectiveColor,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 );
@@ -604,16 +752,31 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                               if (config.attribute == Attribute.ol) {
                                 final numberStr =
                                     '${config.getIndexNumberByIndent ?? '1'}${config.withDot ? '.' : ''}';
+                                final paddingEnd = (effectiveFontSize * 0.4).clamp(6.0, 16.0);
+                                final estimatedCharWidth = effectiveFontSize * 0.62;
+                                final neededWidth = (numberStr.length * estimatedCharWidth) + paddingEnd + 4.0;
+                                final dynamicWidth = neededWidth.clamp(28.0, 72.0);
+
+                                final effectiveStyle = TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: effectiveFontSize,
+                                  fontWeight: effectiveFontWeight,
+                                  color: effectiveColor,
+                                  height: effectiveHeight,
+                                );
+
                                 return Container(
-                                  width: config.width ?? 28.0,
-                                  height: firstLineHeight,
-                                  padding: EdgeInsetsDirectional.only(end: config.padding ?? 8.0),
-                                  alignment: AlignmentDirectional.centerEnd,
+                                  width: dynamicWidth,
+                                  height: lineBoxHeight,
+                                  padding: EdgeInsetsDirectional.only(end: paddingEnd),
+                                  alignment: AlignmentDirectional.topEnd,
                                   child: Text(
                                     numberStr,
                                     style: effectiveStyle,
-                                    strutStyle: StrutStyle.fromTextStyle(
-                                      effectiveStyle,
+                                    strutStyle: StrutStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: nominalFontSize,
+                                      height: effectiveHeight,
                                       forceStrutHeight: true,
                                     ),
                                     textAlign: TextAlign.end,

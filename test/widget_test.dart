@@ -201,6 +201,86 @@ void main() {
     expect(numberRect.height, greaterThan(0));
     expect(numberRect.width, greaterThan(0));
   });
+
+  testWidgets('Test NoteEditorScreen scales bullet and numbering with enlarged font size (26pt)', (WidgetTester tester) async {
+    final doc = Document()
+      ..insert(0, 'Large bullet\nLarge number\n')
+      ..format(0, 12, Attribute.ul)
+      ..format(0, 12, Attribute.clone(Attribute.size, '26'))
+      ..format(13, 12, Attribute.ol)
+      ..format(13, 12, Attribute.clone(Attribute.size, '26'));
+
+    final note = NoteModel(
+      id: 'test-large-bullet-note',
+      title: 'Teks Besar',
+      contentJson: json.encode(doc.toDelta().toJson()),
+      plainText: 'Large bullet\nLarge number',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      lineSpacing: 1.6,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(fontFamily: 'Poppins'),
+        home: NoteEditorScreen(
+          note: note,
+          folders: const [],
+          onSave: (_) {},
+          onDelete: (_) {},
+          onFolderCreated: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Teks Besar'), findsOneWidget);
+    final numberFinder = find.text('1.');
+    expect(numberFinder, findsOneWidget);
+
+    final Text textWidget = tester.widget(numberFinder);
+    expect(textWidget.style?.fontSize, 26.0);
+  });
+
+  testWidgets('Test NoteEditorScreen scales bullet and numbering with reduced font size (12pt)', (WidgetTester tester) async {
+    final doc = Document()
+      ..insert(0, 'Small bullet\nSmall number\n')
+      ..format(0, 12, Attribute.ul)
+      ..format(0, 12, Attribute.clone(Attribute.size, '12'))
+      ..format(13, 12, Attribute.ol)
+      ..format(13, 12, Attribute.clone(Attribute.size, '12'));
+
+    final note = NoteModel(
+      id: 'test-small-bullet-note',
+      title: 'Teks Kecil',
+      contentJson: json.encode(doc.toDelta().toJson()),
+      plainText: 'Small bullet\nSmall number',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      lineSpacing: 1.6,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(fontFamily: 'Poppins'),
+        home: NoteEditorScreen(
+          note: note,
+          folders: const [],
+          onSave: (_) {},
+          onDelete: (_) {},
+          onFolderCreated: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Teks Kecil'), findsOneWidget);
+    final numberFinder = find.text('1.');
+    expect(numberFinder, findsOneWidget);
+
+    final Text textWidget = tester.widget(numberFinder);
+    expect(textWidget.style?.fontSize, 12.0);
+  });
   test('Test SmartQuillController maintains inline format changes on newline and space after text deletion', () {
     final doc = Document();
     final controller = SmartQuillController(
