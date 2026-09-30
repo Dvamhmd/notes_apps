@@ -105,23 +105,23 @@ class IqQuestionsData {
       const IqQuestion(
         id: 'fl_4',
         category: IqCategory.fluidLogic,
-        questionText: 'Perhatikan matriks kombinasi garis berikut. Simbol apakah yang tepat untuk melengkapi matriks?',
+        questionText: 'Perhatikan matriks kombinasi garis berikut. Simbol apakah yang tepat untuk melengkapi tanda tanya (?):',
         diagramType: DiagramType.ravenMatrix3x3,
         diagramData: {
-          'title': 'Matriks Orientasi Garis',
+          'title': 'Matriks Penggabungan Garis',
           'grid': [
             ['|', '—', '+'],
             ['/', '\\', 'X'],
-            ['||', '==', '?'],
+            ['+', 'X', '?'],
           ],
         },
-        options: ['++', 'XX', '#', '|||', '==='],
-        correctOptionIndex: 2, // #
+        options: ['✱', '#', '||', '==', 'O'],
+        correctOptionIndex: 0, // ✱
         difficulty: 1,
-        explanation: 'Setiap baris menggabungkan garis vertikal dan horisontal:\n'
-            '• Baris 1: | dan — digabung menjadi +\n'
-            '• Baris 2: / dan \\ digabung menjadi X\n'
-            '• Baris 3: || (dua vertikal) dan == (dua horisontal) digabung membentuk simbol pagar (#).',
+        explanation: 'Pola penggabungan (superposisi) garis pada setiap baris:\n'
+            '• Baris 1: Garis vertikal (|) digabung dengan garis horisontal (—) menjadi tanda tambah (+)\n'
+            '• Baris 2: Garis miring kanan (/) digabung dengan garis miring kiri (\\) menjadi tanda silang (X)\n'
+            '• Baris 3: Tanda tambah (+) digabung dengan tanda silang (X) menghasilkan simbol bintang/asteris 8 arah (✱).',
       ),
       const IqQuestion(
         id: 'fl_5',
@@ -266,20 +266,23 @@ class IqQuestionsData {
       const IqQuestion(
         id: 'fl_12',
         category: IqCategory.fluidLogic,
-        questionText: 'Perhatikan matriks superposisi (penggabungan visual) 3×3 berikut:',
+        questionText: 'Perhatikan matriks logika orientasi sudut berikut. Tentukan simbol pengisi tanda tanya (?):',
         diagramType: DiagramType.ravenMatrix3x3,
         diagramData: {
-          'title': 'Matriks Overlap Garis',
+          'title': 'Matriks Pertemuan Garis Bersudut',
           'grid': [
-            ['|', '—', '+'],
-            ['+', 'X', '※'],
-            ['—', '/', '?'],
+            ['|', '—', '∟'],
+            ['—', '|', '┌'],
+            ['|', '|', '?'],
           ],
         },
-        options: ['|', '/', '∦', 'X', '⟂'],
-        correctOptionIndex: 4, // ⟂ atau garis silang bersudut
+        options: ['||', '—', 'T', 'X', '+'],
+        correctOptionIndex: 0, // ||
         difficulty: 3,
-        explanation: 'Setiap kolom dan baris merupakan tumpang tindih sudut garis murni. Menggabungkan garis horisontal (—) dan miring (/) menghasilkan sudut pertemuan bersilang.',
+        explanation: 'Pola keteraturan baris:\n'
+            '• Baris 1: Garis vertikal (|) dan horisontal (—) membentuk sudut siku bawah (∟)\n'
+            '• Baris 2: Garis horisontal (—) dan vertikal (|) membentuk sudut siku atas (┌)\n'
+            '• Baris 3: Dua garis vertikal sejajar (| dan |) jika digabungkan tetap menghasilkan dua garis sejajar (||).',
       ),
       const IqQuestion(
         id: 'fl_13',
@@ -1058,12 +1061,17 @@ class IqQuestionsData {
             'Diketahui HANYA ADA 1 TULISAN YANG BENAR, dan hadiah pasti ada di salah satu kotak.\n\n'
             'Di kotak manakah hadiah berada?',
         options: ['Kotak 1', 'Kotak 2', 'Kotak 3', 'Kotak 1 atau 3', 'Tidak ada hadiah'],
-        correctOptionIndex: 0, // Kotak 1
+        correctOptionIndex: 1, // Kotak 2
         difficulty: 2,
-        explanation: '• Jika hadiah di Kotak 3, maka Kotak 1 Benar, Kotak 2 Benar, Kotak 3 Benar (ada 3 benar, bertentangan).\n'
-            '• Jika hadiah di Kotak 2, maka Kotak 1 Benar, Kotak 2 Salah, Kotak 3 Salah (ada 1 benar, tapi jika Kotak 1 berisi hadiah maka Kotak 1 Salah, Kotak 2 Salah, Kotak 3 Salah).\n'
-            '• Jika hadiah ada di Kotak 1: Kotak 1 SALAH ("tidak di sini"), Kotak 2 SALAH ("ada di 3"), Kotak 3 SALAH ("Kotak 2 benar").\n'
-            'Analisis konsistensi: Hadiah berada di Kotak 1.',
+        explanation: 'Uji hipotesis logika (Syarat: TEPAT 1 Tulisan yang BENAR):\n'
+            '• Jika hadiah di Kotak 1: Kotak 1 Salah, Kotak 2 Salah, Kotak 3 Salah (0 benar, gugur).\n'
+            '• Jika hadiah di Kotak 3: Kotak 1 Benar, Kotak 2 Benar, Kotak 3 Benar (3 benar, gugur).\n'
+            '• Jika hadiah di Kotak 2:\n'
+            '  - Kotak 1 BENAR ("Hadiah tidak ada di kotak 1")\n'
+            '  - Kotak 2 SALAH ("Hadiah ada di kotak 3")\n'
+            '  - Kotak 3 SALAH ("Tulisan di kotak 2 adalah benar")\n'
+            '  (Menghasilkan TEPAT 1 tulisan BENAR, memenuhi syarat mutlak).\n'
+            'Kesimpulan: Hadiah pasti berada di Kotak 2.',
       ),
       const IqQuestion(
         id: 'pd_11',
