@@ -2118,9 +2118,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               )
             : AppBar(
-                backgroundColor: const Color(0xFFF8FAFC),
+                backgroundColor: Colors.white,
                 elevation: 0,
                 scrolledUnderElevation: 0,
+                bottom: PreferredSize(
+                  preferredSize: const Size.fromHeight(1),
+                  child: Container(
+                    height: 1,
+                    color: const Color(0xFFE2E8F0),
+                  ),
+                ),
                 leading: (_currentFolderId != null || widget.isOpenedFromManage)
                     ? IconButton(
                         icon: const Icon(

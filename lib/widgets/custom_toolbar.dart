@@ -23,7 +23,6 @@ class CustomToolbar extends StatefulWidget {
 class _CustomToolbarState extends State<CustomToolbar> {
   bool _showFormatMenu = false;
   bool _showListMenu = false;
-  bool _showHistoryMenu = false;
 
   final List<Color> _colorPalette = [
     const Color(0xFF0F172A), // Charcoal / Default Black
@@ -653,6 +652,59 @@ class _CustomToolbarState extends State<CustomToolbar> {
     );
   }
 
+  Widget _buildFormatOptionCard({
+    required String label,
+    required IconData icon,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF4F46E5) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isActive ? const Color(0xFF4F46E5) : const Color(0xFFE2E8F0),
+            width: 1.5,
+          ),
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF4F46E5).withValues(alpha: 0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 19,
+              color: isActive ? Colors.white : const Color(0xFF334155),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: isActive ? Colors.white : const Color(0xFF64748B),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildFormatFloatingBar() {
     return Container(
       margin: const EdgeInsets.fromLTRB(10, 8, 10, 4),
@@ -818,137 +870,6 @@ class _CustomToolbarState extends State<CustomToolbar> {
     );
   }
 
-  Widget _buildHistoryFloatingBar() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(10, 8, 10, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFCBD5E1),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, -3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildFormatOptionCard(
-              label: 'Batal (Undo)',
-              icon: Icons.undo_rounded,
-              isActive: false,
-              onTap: () => widget.controller.undo(),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: _buildFormatOptionCard(
-              label: 'Ulangi (Redo)',
-              icon: Icons.redo_rounded,
-              isActive: false,
-              onTap: () => widget.controller.redo(),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            width: 1,
-            height: 30,
-            color: const Color(0xFFE2E8F0),
-          ),
-          const SizedBox(width: 6),
-          Tooltip(
-            message: 'Tutup Opsi',
-            child: InkWell(
-              onTap: () {
-                setState(() {
-                  _showHistoryMenu = false;
-                });
-              },
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                width: 34,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: const Color(0xFFE2E8F0),
-                  ),
-                ),
-                child: const Icon(
-                  Icons.close_rounded,
-                  size: 18,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFormatOptionCard({
-    required String label,
-    required IconData icon,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF4F46E5) : const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isActive ? const Color(0xFF4F46E5) : const Color(0xFFE2E8F0),
-            width: 1.5,
-          ),
-          boxShadow: isActive
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF4F46E5).withValues(alpha: 0.3),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 19,
-              color: isActive ? Colors.white : const Color(0xFF334155),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 9.5,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                color: isActive ? Colors.white : const Color(0xFF64748B),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final hasAnyStyleActive = _isBold || _isItalic || _isUnderline;
@@ -956,7 +877,7 @@ class _CustomToolbarState extends State<CustomToolbar> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFF8FAFC),
         border: const Border(
           top: BorderSide(color: Color(0xFFE2E8F0), width: 1),
         ),
@@ -971,10 +892,9 @@ class _CustomToolbarState extends State<CustomToolbar> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Sub-bar format floating options
+          // Sub-bar floating options
           if (_showFormatMenu) _buildFormatFloatingBar(),
           if (_showListMenu) _buildListFloatingBar(),
-          if (_showHistoryMenu) _buildHistoryFloatingBar(),
 
           // Main toolbar row
           SafeArea(
@@ -994,17 +914,16 @@ class _CustomToolbarState extends State<CustomToolbar> {
                           _showFormatMenu = !_showFormatMenu;
                           if (_showFormatMenu) {
                             _showListMenu = false;
-                            _showHistoryMenu = false;
                           }
                         });
                       },
                       borderRadius: BorderRadius.circular(10),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
                         decoration: BoxDecoration(
                           color: (_showFormatMenu || hasAnyStyleActive)
                               ? const Color(0xFFEEF2FF)
-                              : Colors.transparent,
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             color: (_showFormatMenu || hasAnyStyleActive)
@@ -1023,12 +942,12 @@ class _CustomToolbarState extends State<CustomToolbar> {
                                   ? const Color(0xFF4F46E5)
                                   : const Color(0xFF475569),
                             ),
-                            const SizedBox(width: 3),
+                            const SizedBox(width: 2),
                             Icon(
                               _showFormatMenu
                                   ? Icons.keyboard_arrow_up_rounded
                                   : Icons.keyboard_arrow_down_rounded,
-                              size: 16,
+                              size: 15,
                               color: (_showFormatMenu || hasAnyStyleActive)
                                   ? const Color(0xFF4F46E5)
                                   : const Color(0xFF94A3B8),
@@ -1127,7 +1046,6 @@ class _CustomToolbarState extends State<CustomToolbar> {
                           _showListMenu = !_showListMenu;
                           if (_showListMenu) {
                             _showFormatMenu = false;
-                            _showHistoryMenu = false;
                           }
                         });
                       },
@@ -1137,7 +1055,7 @@ class _CustomToolbarState extends State<CustomToolbar> {
                         decoration: BoxDecoration(
                           color: (_showListMenu || hasAnyListActive)
                               ? const Color(0xFFEEF2FF)
-                              : Colors.transparent,
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             color: (_showListMenu || hasAnyListActive)
@@ -1183,64 +1101,9 @@ class _CustomToolbarState extends State<CustomToolbar> {
                       setState(() {
                         _showFormatMenu = false;
                         _showListMenu = false;
-                        _showHistoryMenu = false;
                       });
                       _showDividerSheet();
                     },
-                  ),
-
-                  // 6. Riwayat (Undo & Redo Gabungan)
-                  Tooltip(
-                    message: 'Riwayat (Batal / Ulangi)',
-                    child: InkWell(
-                      onTap: () {
-                        setState(() {
-                          _showHistoryMenu = !_showHistoryMenu;
-                          if (_showHistoryMenu) {
-                            _showFormatMenu = false;
-                            _showListMenu = false;
-                          }
-                        });
-                      },
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: _showHistoryMenu
-                              ? const Color(0xFFEEF2FF)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _showHistoryMenu
-                                ? const Color(0xFFC7D2FE)
-                                : const Color(0xFFE2E8F0),
-                            width: _showHistoryMenu ? 1.5 : 1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.history_rounded,
-                              size: 18,
-                              color: _showHistoryMenu
-                                  ? const Color(0xFF4F46E5)
-                                  : const Color(0xFF475569),
-                            ),
-                            const SizedBox(width: 2),
-                            Icon(
-                              _showHistoryMenu
-                                  ? Icons.keyboard_arrow_up_rounded
-                                  : Icons.keyboard_arrow_down_rounded,
-                              size: 15,
-                              color: _showHistoryMenu
-                                  ? const Color(0xFF4F46E5)
-                                  : const Color(0xFF94A3B8),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
                   ),
                 ],
               ),
@@ -1260,7 +1123,7 @@ class _CustomToolbarState extends State<CustomToolbar> {
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: isActive ? const Color(0xFFEEF2FF) : Colors.transparent,
+        color: isActive ? const Color(0xFFEEF2FF) : Colors.white,
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
           onTap: onTap,
