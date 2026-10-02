@@ -319,59 +319,68 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
     widget.onSave(updatedNote);
   }
 
-  void _showLineSpacingDialog() {
+  void _showLineSpacingDialog() async {
+    _editorFocusNode.canRequestFocus = false;
+    _editorFocusNode.unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+
     final selStyle = _quillController.getSelectionStyle();
     final lineAttr = selStyle.attributes[Attribute.lineHeight.key];
     final double activeSpacing =
         (lineAttr?.value != null ? double.tryParse(lineAttr!.value.toString()) : null) ?? _lineSpacing;
 
-    LineSpacingSheet.show(
-      context: context,
-      currentSpacing: activeSpacing.clamp(1.0, 2.8),
-      onSpacingChanged: (newSpacing) {
-        final clampedVal = double.parse(newSpacing.clamp(1.0, 2.8).toStringAsFixed(2));
-        final selection = _quillController.selection;
-        if (selection.isCollapsed) {
-          final docLength = _quillController.document.length;
-          if (docLength > 0) {
-            _quillController.document.format(
-              0,
-              docLength,
+    try {
+      await LineSpacingSheet.show(
+        context: context,
+        currentSpacing: activeSpacing.clamp(1.0, 2.8),
+        onSpacingChanged: (newSpacing) {
+          final clampedVal = double.parse(newSpacing.clamp(1.0, 2.8).toStringAsFixed(2));
+          final selection = _quillController.selection;
+          if (selection.isCollapsed) {
+            final docLength = _quillController.document.length;
+            if (docLength > 0) {
+              _quillController.document.format(
+                0,
+                docLength,
+                Attribute.clone(Attribute.lineHeight, clampedVal),
+              );
+            }
+          } else {
+            _quillController.formatSelection(
               Attribute.clone(Attribute.lineHeight, clampedVal),
             );
           }
-        } else {
-          _quillController.formatSelection(
-            Attribute.clone(Attribute.lineHeight, clampedVal),
-          );
-        }
-        setState(() {
-          _lineSpacing = clampedVal;
-        });
-        _scheduleAutoSave();
-      },
-      onReset: () {
-        final selection = _quillController.selection;
-        if (selection.isCollapsed) {
-          final docLength = _quillController.document.length;
-          if (docLength > 0) {
-            _quillController.document.format(
-              0,
-              docLength,
+          setState(() {
+            _lineSpacing = clampedVal;
+          });
+          _scheduleAutoSave();
+        },
+        onReset: () {
+          final selection = _quillController.selection;
+          if (selection.isCollapsed) {
+            final docLength = _quillController.document.length;
+            if (docLength > 0) {
+              _quillController.document.format(
+                0,
+                docLength,
+                Attribute.clone(Attribute.lineHeight, null),
+              );
+            }
+          } else {
+            _quillController.formatSelection(
               Attribute.clone(Attribute.lineHeight, null),
             );
           }
-        } else {
-          _quillController.formatSelection(
-            Attribute.clone(Attribute.lineHeight, null),
-          );
-        }
-        setState(() {
-          _lineSpacing = 1.6;
-        });
-        _scheduleAutoSave();
-      },
-    );
+          setState(() {
+            _lineSpacing = 1.6;
+          });
+          _scheduleAutoSave();
+        },
+      );
+    } finally {
+      _editorFocusNode.canRequestFocus = true;
+    }
   }
 
   Widget _buildPopupIconButton({
@@ -1171,6 +1180,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                 // Custom Toolbar for Rich Text Styling & Line Spacing
                 CustomToolbar(
                   controller: _quillController,
+                  focusNode: _editorFocusNode,
                   lineSpacing: _lineSpacing,
                   onLineSpacingChanged: (val) {
                     setState(() {

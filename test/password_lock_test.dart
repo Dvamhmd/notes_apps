@@ -124,14 +124,17 @@ void main() {
 
       // Find password input fields
       final textFields = find.byType(TextField);
-      expect(textFields, findsNWidgets(2));
+      expect(textFields, findsNWidgets(3));
 
-      // Enter password
+      // Enter password & recovery answer
       await tester.enterText(textFields.at(0), '1234');
       await tester.enterText(textFields.at(1), '1234');
+      await tester.enterText(textFields.at(2), 'kucing');
       await tester.pumpAndSettle();
 
       // Submit
+      await tester.ensureVisible(find.text('Pasang Password'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Pasang Password'));
       await tester.pumpAndSettle();
 

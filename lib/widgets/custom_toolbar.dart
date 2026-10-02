@@ -6,6 +6,7 @@ import 'divider_sheet.dart';
 
 class CustomToolbar extends StatefulWidget {
   final QuillController controller;
+  final FocusNode? focusNode;
   final double lineSpacing;
   final ValueChanged<double>? onLineSpacingChanged;
   final VoidCallback? onOpenLineSpacing;
@@ -13,6 +14,7 @@ class CustomToolbar extends StatefulWidget {
   const CustomToolbar({
     super.key,
     required this.controller,
+    this.focusNode,
     this.lineSpacing = 1.6,
     this.onLineSpacingChanged,
     this.onOpenLineSpacing,
@@ -217,67 +219,78 @@ class _CustomToolbarState extends State<CustomToolbar> {
     widget.onLineSpacingChanged?.call(clampedVal);
   }
 
-  void _showFontSizeAndSpacingDialog() {
+  void _showFontSizeAndSpacingDialog() async {
+    widget.focusNode?.canRequestFocus = false;
+    widget.focusNode?.unfocus();
     FocusManager.instance.primaryFocus?.unfocus();
     SystemChannels.textInput.invokeMethod('TextInput.hide');
 
     final double initialFontSize = _currentFontSizeValue;
     double currentFontSize = initialFontSize;
 
-    CustomTouchTextSelectionControls.showSuppressed(() {
-      return showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.white,
-        isScrollControlled: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        builder: (ctx) {
-          double currentSpacing = _currentLineSpacing;
-          return StatefulBuilder(
-            builder: (context, setSheetState) {
-              final String spacingDesc = currentSpacing <= 1.35
-                  ? 'Rapat / Dekat'
-                  : (currentSpacing <= 1.75
-                      ? 'Standar'
-                      : (currentSpacing <= 2.2
-                          ? 'Renggang / Jauh'
-                          : 'Sangat Jauh'));
+    try {
+      await CustomTouchTextSelectionControls.showSuppressed(() {
+        return showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.white,
+          isScrollControlled: true,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          builder: (ctx) {
+            double currentSpacing = _currentLineSpacing;
+            return StatefulBuilder(
+              builder: (context, setSheetState) {
+                final String spacingDesc = currentSpacing <= 1.35
+                    ? 'Rapat / Dekat'
+                    : (currentSpacing <= 1.75
+                        ? 'Standar'
+                        : (currentSpacing <= 2.2
+                            ? 'Renggang / Jauh'
+                            : 'Sangat Jauh'));
 
-              void applyCustomSize(double size) {
-                final clamped = size.clamp(6.0, 96.0);
-                FocusManager.instance.primaryFocus?.unfocus();
-                SystemChannels.textInput.invokeMethod('TextInput.hide');
-
-                setSheetState(() {
-                  currentFontSize = clamped;
-                });
-
-                final int rounded = clamped.round();
-                final String valStr = (clamped == rounded.toDouble())
-                    ? '$rounded'
-                    : clamped.toString();
-
-                widget.controller.formatSelection(
-                  Attribute.clone(Attribute.header, null),
-                );
-                widget.controller.formatSelection(
-                  Attribute.clone(Attribute.size, valStr),
-                );
-              }
-
-              void applySpacing(double val) {
-                final clamped = double.parse(val.clamp(1.0, 2.8).toStringAsFixed(2));
-                setSheetState(() => currentSpacing = clamped);
-                _applyLineSpacing(clamped);
-              }
-
-              return GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onTap: () {
+                void applyCustomSize(double size) {
+                  final clamped = size.clamp(6.0, 96.0);
+                  widget.focusNode?.canRequestFocus = false;
+                  widget.focusNode?.unfocus();
                   FocusManager.instance.primaryFocus?.unfocus();
                   SystemChannels.textInput.invokeMethod('TextInput.hide');
-                },
+
+                  setSheetState(() {
+                    currentFontSize = clamped;
+                  });
+
+                  final int rounded = clamped.round();
+                  final String valStr = (clamped == rounded.toDouble())
+                      ? '$rounded'
+                      : clamped.toString();
+
+                  widget.controller.formatSelection(
+                    Attribute.clone(Attribute.header, null),
+                  );
+                  widget.controller.formatSelection(
+                    Attribute.clone(Attribute.size, valStr),
+                  );
+                }
+
+                void applySpacing(double val) {
+                  final clamped = double.parse(val.clamp(1.0, 2.8).toStringAsFixed(2));
+                  widget.focusNode?.canRequestFocus = false;
+                  widget.focusNode?.unfocus();
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  SystemChannels.textInput.invokeMethod('TextInput.hide');
+                  setSheetState(() => currentSpacing = clamped);
+                  _applyLineSpacing(clamped);
+                }
+
+                return GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: () {
+                    widget.focusNode?.canRequestFocus = false;
+                    widget.focusNode?.unfocus();
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    SystemChannels.textInput.invokeMethod('TextInput.hide');
+                  },
                 child: SafeArea(
                   child: Padding(
                     padding: EdgeInsets.only(
@@ -705,6 +718,9 @@ class _CustomToolbarState extends State<CustomToolbar> {
         },
       );
     });
+    } finally {
+      widget.focusNode?.canRequestFocus = true;
+    }
   }
 
   Widget _buildSpacingPreset({
@@ -807,15 +823,21 @@ class _CustomToolbarState extends State<CustomToolbar> {
     );
   }
 
-  void _showColorPicker() {
-    CustomTouchTextSelectionControls.showSuppressed(() {
-      return showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.white,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        builder: (ctx) {
+  void _showColorPicker() async {
+    widget.focusNode?.canRequestFocus = false;
+    widget.focusNode?.unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+
+    try {
+      await CustomTouchTextSelectionControls.showSuppressed(() {
+        return showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.white,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          builder: (ctx) {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -903,6 +925,9 @@ class _CustomToolbarState extends State<CustomToolbar> {
       },
     );
     });
+    } finally {
+      widget.focusNode?.canRequestFocus = true;
+    }
   }
 
   void _insertDivider(String embedData) {
@@ -933,15 +958,24 @@ class _CustomToolbarState extends State<CustomToolbar> {
     }
   }
 
-  void _showDividerSheet() {
+  void _showDividerSheet() async {
     setState(() {
       _showFormatMenu = false;
       _showListMenu = false;
     });
-    DividerSheet.show(
-      context: context,
-      onInsert: _insertDivider,
-    );
+    widget.focusNode?.canRequestFocus = false;
+    widget.focusNode?.unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+
+    try {
+      await DividerSheet.show(
+        context: context,
+        onInsert: _insertDivider,
+      );
+    } finally {
+      widget.focusNode?.canRequestFocus = true;
+    }
   }
 
   Widget _buildFormatOptionCard({
