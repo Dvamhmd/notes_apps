@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/storage_service.dart';
@@ -47,7 +48,7 @@ class PasswordDialog {
     required String itemType, // 'Catatan' or 'Folder'
     required String correctPassword,
     void Function(String newPassword)? onPasswordChanged,
-    VoidCallback? onPasswordRemoved,
+    FutureOr<void> Function()? onPasswordRemoved,
   }) async {
     final result = await showDialog<bool>(
       context: context,
@@ -91,6 +92,7 @@ class PasswordDialog {
         title: title,
         itemType: itemType,
         correctPassword: currentPassword,
+        onPasswordRemoved: () async {},
       );
       if (verified) {
         return const PasswordManageResult(
@@ -211,22 +213,30 @@ class _SetPasswordDialogState extends State<_SetPasswordDialog> {
       return;
     }
 
-    // If security question is being configured
-    if (_showSecurityQuestionSetup) {
+    // If security question is not yet configured or is being updated
+    if (!_hasExistingSecurityQuestion || _showSecurityQuestionSetup) {
       final question = _isCustomQuestion
           ? _customQuestionController.text.trim()
           : _selectedQuestion.trim();
       final answer = _answerController.text.trim();
 
-      if (answer.isNotEmpty) {
-        if (_isCustomQuestion && question.isEmpty) {
-          setState(() {
-            _errorMessage = 'Pertanyaan keamanan kustom wajib diisi';
-          });
-          return;
-        }
-        await _storageService.saveSecurityQuestion(question, answer);
+      if (_isCustomQuestion && question.isEmpty) {
+        setState(() {
+          _errorMessage = 'Pertanyaan keamanan kustom wajib diisi';
+        });
+        return;
       }
+
+      if (answer.isEmpty) {
+        setState(() {
+          _errorMessage = !_hasExistingSecurityQuestion
+              ? 'Pertanyaan & jawaban pemulihan wajib diisi demi keamanan akun'
+              : 'Jawaban keamanan tidak boleh kosong jika ingin diubah';
+        });
+        return;
+      }
+
+      await _storageService.saveSecurityQuestion(question, answer);
     }
 
     HapticFeedback.lightImpact();
@@ -379,25 +389,31 @@ class _SetPasswordDialogState extends State<_SetPasswordDialog> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
+                    color: _hasExistingSecurityQuestion ? const Color(0xFFF1F5F9) : const Color(0xFFEEF2FF),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    border: Border.all(
+                      color: _hasExistingSecurityQuestion ? const Color(0xFFE2E8F0) : const Color(0xFFC7D2FE),
+                    ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          const Icon(
-                            Icons.health_and_safety_outlined,
+                          Icon(
+                            _hasExistingSecurityQuestion
+                                ? Icons.health_and_safety_outlined
+                                : Icons.verified_user_rounded,
                             size: 18,
-                            color: Color(0xFF4F46E5),
+                            color: const Color(0xFF4F46E5),
                           ),
                           const SizedBox(width: 8),
-                          const Expanded(
+                          Expanded(
                             child: Text(
-                              'Pemulihan Jika Lupa Kata Sandi',
-                              style: TextStyle(
+                              _hasExistingSecurityQuestion
+                                  ? 'Pemulihan Jika Lupa Kata Sandi'
+                                  : 'Pertanyaan Pemulihan (Wajib)',
+                              style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
                                 color: Color(0xFF1E293B),
@@ -424,9 +440,37 @@ class _SetPasswordDialogState extends State<_SetPasswordDialog> {
                                   color: Color(0xFF4F46E5),
                                 ),
                               ),
+                            )
+                          else
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF4F46E5),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                'Wajib',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
                             ),
                         ],
                       ),
+                      if (!_hasExistingSecurityQuestion) ...[
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Wajib dikonfigurasi sebagai jalur pemulihan aman jika Anda lupa kata sandi.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF6366F1),
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
                       if (_hasExistingSecurityQuestion && !_showSecurityQuestionSetup) ...[
                         const SizedBox(height: 6),
                         const Row(
@@ -445,7 +489,7 @@ class _SetPasswordDialogState extends State<_SetPasswordDialog> {
                           ],
                         ),
                       ],
-                      if (_showSecurityQuestionSetup) ...[
+                      if (!_hasExistingSecurityQuestion || _showSecurityQuestionSetup) ...[
                         const SizedBox(height: 10),
                         const Text(
                           'Pilih pertanyaan keamanan:',
@@ -499,7 +543,7 @@ class _SetPasswordDialogState extends State<_SetPasswordDialog> {
                           TextField(
                             controller: _customQuestionController,
                             decoration: InputDecoration(
-                              labelText: 'Pertanyaan Kustom',
+                              labelText: 'Pertanyaan Kustom *',
                               hintText: 'Misal: Nama kota kencan pertama?',
                               filled: true,
                               fillColor: Colors.white,
@@ -515,8 +559,8 @@ class _SetPasswordDialogState extends State<_SetPasswordDialog> {
                         TextField(
                           controller: _answerController,
                           decoration: InputDecoration(
-                            labelText: 'Jawaban Keamanan',
-                            hintText: 'Masukkan jawaban Anda',
+                            labelText: _hasExistingSecurityQuestion ? 'Jawaban Keamanan' : 'Jawaban Keamanan *',
+                            hintText: 'Masukkan jawaban pemulihan Anda',
                             prefixIcon: const Icon(Icons.edit_note_rounded, size: 18, color: Color(0xFF64748B)),
                             filled: true,
                             fillColor: Colors.white,
@@ -614,7 +658,7 @@ class _UnlockPasswordDialog extends StatefulWidget {
   final String itemType;
   final String correctPassword;
   final void Function(String newPassword)? onPasswordChanged;
-  final VoidCallback? onPasswordRemoved;
+  final FutureOr<void> Function()? onPasswordRemoved;
 
   const _UnlockPasswordDialog({
     required this.title,
@@ -885,7 +929,7 @@ class _PasswordRecoveryDialog extends StatefulWidget {
   final String itemType;
   final String correctPassword;
   final void Function(String newPassword)? onPasswordChanged;
-  final VoidCallback? onPasswordRemoved;
+  final FutureOr<void> Function()? onPasswordRemoved;
 
   const _PasswordRecoveryDialog({
     required this.title,
@@ -924,10 +968,7 @@ class _PasswordRecoveryDialogState extends State<_PasswordRecoveryDialog> {
       setState(() {
         _securityQuestion = question;
         _isLoading = false;
-        // If no question was ever set, let the user recover directly to avoid lockouts
-        if (question == null || question.isEmpty) {
-          _isVerified = true;
-        }
+        _isVerified = false; // Never automatically verify without answering
       });
     }
   }
@@ -1018,6 +1059,8 @@ class _PasswordRecoveryDialogState extends State<_PasswordRecoveryDialog> {
       );
     }
 
+    final bool hasQ = _securityQuestion != null && _securityQuestion!.trim().isNotEmpty;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       elevation: 10,
@@ -1028,12 +1071,127 @@ class _PasswordRecoveryDialogState extends State<_PasswordRecoveryDialog> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
           child: SingleChildScrollView(
-            child: _isResetMode
-                ? _buildResetPasswordView()
-                : (_isVerified ? _buildVerifiedSuccessView() : _buildAnswerQuestionView()),
+            child: !hasQ
+                ? _buildNoSecurityQuestionView()
+                : (_isResetMode
+                    ? _buildResetPasswordView()
+                    : (_isVerified ? _buildVerifiedSuccessView() : _buildAnswerQuestionView())),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildNoSecurityQuestionView() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Center(
+          child: Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF2F2),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: const Color(0xFFEF4444).withValues(alpha: 0.3),
+                width: 2,
+              ),
+            ),
+            child: const Icon(
+              Icons.shield_outlined,
+              color: Color(0xFFDC2626),
+              size: 30,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'Pemulihan Tidak Tersedia',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1E293B),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Pertanyaan keamanan belum pernah dikonfigurasi di aplikasi ini. Demi menjaga privasi dan keamanan data ${widget.itemType.toLowerCase()} "${widget.title.isEmpty ? widget.itemType : widget.title}", kata sandi tidak dapat dibuka atau diatur ulang tanpa verifikasi.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 13,
+            color: Color(0xFF64748B),
+            height: 1.45,
+          ),
+        ),
+        const SizedBox(height: 18),
+
+        // Advice / info box
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                size: 20,
+                color: Color(0xFF4F46E5),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Saran Akses:',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Silakan coba kembali kata sandi yang Anda ingat. Setelah berhasil membuka kunci, Anda dapat mengatur Pertanyaan Pemulihan melalui menu Kelola Kata Sandi agar akun terlindungi dan dapat dipulihkan kapan saja.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF475569),
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 22),
+
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF4F46E5),
+            foregroundColor: Colors.white,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: 13),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: const Text(
+            'Kembali ke Layar Kunci',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1230,8 +1388,6 @@ class _PasswordRecoveryDialogState extends State<_PasswordRecoveryDialog> {
   }
 
   Widget _buildVerifiedSuccessView() {
-    final bool hasQ = _securityQuestion != null && _securityQuestion!.isNotEmpty;
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1256,10 +1412,10 @@ class _PasswordRecoveryDialogState extends State<_PasswordRecoveryDialog> {
           ),
         ),
         const SizedBox(height: 16),
-        Text(
-          hasQ ? 'Verifikasi Berhasil! 🎉' : 'Pemulihan Akses Data',
+        const Text(
+          'Verifikasi Berhasil! 🎉',
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
             color: Color(0xFF1E293B),
@@ -1267,9 +1423,7 @@ class _PasswordRecoveryDialogState extends State<_PasswordRecoveryDialog> {
         ),
         const SizedBox(height: 6),
         Text(
-          hasQ
-              ? 'Akses ke ${widget.itemType.toLowerCase()} "${widget.title}" berhasil dipulihkan. Berikut kata sandi Anda:'
-              : 'Pertanyaan keamanan belum pernah diatur. Anda dapat melihat kata sandi, membuka kunci langsung, atau mengatur ulang kata sandi:',
+          'Akses ke ${widget.itemType.toLowerCase()} "${widget.title.isEmpty ? widget.itemType : widget.title}" berhasil dipulihkan. Berikut kata sandi Anda:',
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 13,
@@ -1377,9 +1531,27 @@ class _PasswordRecoveryDialogState extends State<_PasswordRecoveryDialog> {
         if (widget.onPasswordRemoved != null) ...[
           const SizedBox(height: 8),
           TextButton.icon(
-            onPressed: () {
-              widget.onPasswordRemoved?.call();
-              Navigator.of(context).pop(true);
+            onPressed: () async {
+              HapticFeedback.lightImpact();
+              await widget.onPasswordRemoved?.call();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Row(
+                      children: [
+                        const Icon(Icons.lock_open_rounded, color: Colors.white, size: 18),
+                        const SizedBox(width: 8),
+                        Text('Kunci ${widget.itemType.toLowerCase()} berhasil dihapus'),
+                      ],
+                    ),
+                    backgroundColor: const Color(0xFF10B981),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+                Navigator.of(context).pop(true);
+              }
             },
             icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFEF4444)),
             label: const Text(
