@@ -1156,6 +1156,7 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
                                 key: ValueKey(note.id),
                                 note: note,
                                 folder: folder,
+                                searchQuery: _searchQuery,
                                 isFolderLocked: isFolderLocked,
                                 margin: const EdgeInsets.only(bottom: 6),
                                 trailing: ReorderableDragStartListener(
@@ -1212,6 +1213,7 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
                               return NoteCard(
                                 note: note,
                                 folder: folder,
+                                searchQuery: _searchQuery,
                                 isFolderLocked: isFolderLocked,
                                 margin: const EdgeInsets.only(bottom: 10),
                                 onTap: () => _openNoteEditor(note),

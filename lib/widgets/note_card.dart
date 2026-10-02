@@ -11,6 +11,7 @@ class NoteCard extends StatelessWidget {
   final NoteModel note;
   final FolderModel? folder;
   final String? folderPath;
+  final String? searchQuery;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
   final bool isSelectionMode;
@@ -24,6 +25,7 @@ class NoteCard extends StatelessWidget {
     required this.note,
     this.folder,
     this.folderPath,
+    this.searchQuery,
     required this.onTap,
     this.onLongPress,
     this.isSelectionMode = false,
@@ -123,14 +125,22 @@ class NoteCard extends StatelessWidget {
                       const SizedBox(width: 10),
                     ],
                     Expanded(
-                      child: Text(
-                        note.title.isEmpty ? 'Tanpa Judul' : note.title,
+                      child: _buildHighlightedText(
+                        text: note.title.isEmpty ? 'Tanpa Judul' : note.title,
+                        query: searchQuery,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        baseStyle: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF1E293B),
+                          letterSpacing: -0.2,
+                        ),
+                        highlightStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF312E81),
+                          backgroundColor: Color(0xFFFEF08A),
                           letterSpacing: -0.2,
                         ),
                       ),
@@ -233,14 +243,22 @@ class NoteCard extends StatelessWidget {
                   ),
                 ] else if (note.plainText.trim().isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  Text(
-                    note.plainText.trim(),
+                  _buildHighlightedText(
+                    text: note.plainText.trim(),
+                    query: searchQuery,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    baseStyle: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
                       color: Color(0xFF64748B),
+                      height: 1.4,
+                    ),
+                    highlightStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF0F172A),
+                      backgroundColor: Color(0xFFFEF08A),
                       height: 1.4,
                     ),
                   ),
@@ -270,6 +288,63 @@ class NoteCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  static Widget _buildHighlightedText({
+    required String text,
+    required String? query,
+    required TextStyle baseStyle,
+    required TextStyle highlightStyle,
+    int? maxLines,
+    TextOverflow overflow = TextOverflow.ellipsis,
+  }) {
+    if (query == null || query.trim().isEmpty || text.isEmpty) {
+      return Text(
+        text,
+        maxLines: maxLines,
+        overflow: overflow,
+        style: baseStyle,
+      );
+    }
+
+    final q = query.trim().toLowerCase();
+    final lower = text.toLowerCase();
+    final spans = <TextSpan>[];
+    int start = 0;
+
+    while (start < text.length) {
+      final index = lower.indexOf(q, start);
+      if (index == -1) {
+        spans.add(TextSpan(text: text.substring(start), style: baseStyle));
+        break;
+      }
+
+      if (index > start) {
+        spans.add(TextSpan(text: text.substring(start, index), style: baseStyle));
+      }
+
+      spans.add(TextSpan(
+        text: text.substring(index, index + q.length),
+        style: highlightStyle,
+      ));
+
+      start = index + q.length;
+    }
+
+    if (spans.isEmpty) {
+      return Text(
+        text,
+        maxLines: maxLines,
+        overflow: overflow,
+        style: baseStyle,
+      );
+    }
+
+    return Text.rich(
+      TextSpan(children: spans),
+      maxLines: maxLines,
+      overflow: overflow,
     );
   }
 }

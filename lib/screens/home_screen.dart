@@ -3735,6 +3735,7 @@ class _HomeScreenState extends State<HomeScreen> {
               return NoteCard(
                 note: note,
                 folder: folder,
+                searchQuery: _searchQuery,
                 isFolderLocked: isLockedForDisplay,
                 isSelectionMode: true,
                 isSelected: isSelected,
@@ -3764,6 +3765,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: NoteCard(
                   note: note,
                   folder: folder,
+                  searchQuery: _searchQuery,
                   isFolderLocked: isLockedForDisplay,
                   onTap: () => _openNoteEditor(note),
                 ),
@@ -3771,6 +3773,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: NoteCard(
                 note: note,
                 folder: folder,
+                searchQuery: _searchQuery,
                 isFolderLocked: isLockedForDisplay,
                 onTap: () => _openNoteEditor(note),
                 onLongPress: () {
@@ -4211,6 +4214,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 note: note,
                 folder: folder,
                 folderPath: folderPathStr,
+                searchQuery: _searchQuery,
                 isFolderLocked: isLockedForDisplay,
                 isSelectionMode: true,
                 isSelected: isSelected,
@@ -4241,6 +4245,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   note: note,
                   folder: folder,
                   folderPath: folderPathStr,
+                  searchQuery: _searchQuery,
                   isFolderLocked: isLockedForDisplay,
                   onTap: () => _openNoteEditor(note),
                 ),
@@ -4249,6 +4254,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 note: note,
                 folder: folder,
                 folderPath: folderPathStr,
+                searchQuery: _searchQuery,
                 isFolderLocked: isLockedForDisplay,
                 onTap: () => _openNoteEditor(note),
                 onLongPress: () {

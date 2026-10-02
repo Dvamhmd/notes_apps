@@ -47,6 +47,13 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
   late double _lineSpacing;
   Timer? _debounceTimer;
 
+  // Search in note state
+  bool _isSearchMode = false;
+  final TextEditingController _inNoteSearchController = TextEditingController();
+  final FocusNode _inNoteSearchFocusNode = FocusNode();
+  List<int> _searchMatches = [];
+  int _currentMatchIndex = 0;
+
   // Zoom state for pinch-to-zoom (gesture cubit)
   double _zoomScale = 1.0;
   double _baseZoomScale = 1.0;
@@ -136,13 +143,153 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
     _debounceTimer?.cancel();
     _saveImmediately();
     _titleController.dispose();
+    _inNoteSearchController.dispose();
+    _inNoteSearchFocusNode.dispose();
     _editorFocusNode.dispose();
     _editorScrollController.dispose();
     _quillController.dispose();
     super.dispose();
   }
 
+  void _openSearchMode() {
+    _editorFocusNode.canRequestFocus = false;
+    _editorFocusNode.unfocus();
+    setState(() {
+      _isSearchMode = true;
+      _searchMatches.clear();
+      _currentMatchIndex = 0;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _isSearchMode) {
+        _inNoteSearchFocusNode.requestFocus();
+        if (_inNoteSearchController.text.trim().isNotEmpty) {
+          _performSearch(_inNoteSearchController.text);
+        }
+      }
+    });
+  }
+
+  void _closeSearchMode() {
+    final int? selectedMatchOffset = (_searchMatches.isNotEmpty &&
+            _currentMatchIndex >= 0 &&
+            _currentMatchIndex < _searchMatches.length)
+        ? _searchMatches[_currentMatchIndex]
+        : null;
+
+    _editorFocusNode.canRequestFocus = true;
+    setState(() {
+      _isSearchMode = false;
+      _searchMatches.clear();
+      _currentMatchIndex = 0;
+      _inNoteSearchController.clear();
+    });
+    _inNoteSearchFocusNode.unfocus();
+
+    final docLen = _quillController.document.length;
+    final targetOffset = selectedMatchOffset != null
+        ? selectedMatchOffset.clamp(0, docLen > 0 ? docLen - 1 : 0)
+        : _quillController.selection.baseOffset.clamp(0, docLen > 0 ? docLen - 1 : 0);
+
+    _quillController.updateSelection(
+      TextSelection.collapsed(offset: targetOffset),
+      ChangeSource.local,
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_isSearchMode) {
+        _editorFocusNode.requestFocus();
+      }
+    });
+  }
+
+  void _performSearch(String query) {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) {
+      setState(() {
+        _searchMatches = [];
+        _currentMatchIndex = 0;
+      });
+      final docLen = _quillController.document.length;
+      final currentOffset = _quillController.selection.baseOffset.clamp(0, docLen > 0 ? docLen - 1 : 0);
+      _quillController.updateSelection(
+        TextSelection.collapsed(offset: currentOffset),
+        ChangeSource.local,
+      );
+      return;
+    }
+
+    final plainText = _quillController.document.toPlainText();
+    final lowerText = plainText.toLowerCase();
+    final lowerQuery = trimmed.toLowerCase();
+    final matches = <int>[];
+
+    int startIndex = 0;
+    while (startIndex < lowerText.length) {
+      final index = lowerText.indexOf(lowerQuery, startIndex);
+      if (index == -1) break;
+      matches.add(index);
+      startIndex = index + lowerQuery.length;
+    }
+
+    setState(() {
+      _searchMatches = matches;
+      if (_currentMatchIndex >= _searchMatches.length) {
+        _currentMatchIndex = 0;
+      }
+    });
+
+    if (matches.isNotEmpty) {
+      _highlightCurrentMatch(trimmed.length);
+    } else {
+      final docLen = _quillController.document.length;
+      final currentOffset = _quillController.selection.baseOffset.clamp(0, docLen > 0 ? docLen - 1 : 0);
+      _quillController.updateSelection(
+        TextSelection.collapsed(offset: currentOffset),
+        ChangeSource.local,
+      );
+    }
+  }
+
+  void _highlightCurrentMatch(int matchLength) {
+    if (_searchMatches.isEmpty || _currentMatchIndex < 0 || _currentMatchIndex >= _searchMatches.length) {
+      return;
+    }
+    final offset = _searchMatches[_currentMatchIndex];
+    _quillController.updateSelection(
+      TextSelection(baseOffset: offset, extentOffset: offset + matchLength),
+      ChangeSource.remote,
+    );
+
+    if (_editorScrollController.hasClients && _editorScrollController.position.maxScrollExtent > 0) {
+      final docLen = math.max(1, _quillController.document.length);
+      final progress = offset / docLen;
+      final targetScroll = (progress * _editorScrollController.position.maxScrollExtent)
+          .clamp(0.0, _editorScrollController.position.maxScrollExtent);
+      _editorScrollController.animateTo(
+        targetScroll,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  void _goToNextMatch() {
+    if (_searchMatches.isEmpty) return;
+    setState(() {
+      _currentMatchIndex = (_currentMatchIndex + 1) % _searchMatches.length;
+    });
+    _highlightCurrentMatch(_inNoteSearchController.text.trim().length);
+  }
+
+  void _goToPreviousMatch() {
+    if (_searchMatches.isEmpty) return;
+    setState(() {
+      _currentMatchIndex = (_currentMatchIndex - 1 + _searchMatches.length) % _searchMatches.length;
+    });
+    _highlightCurrentMatch(_inNoteSearchController.text.trim().length);
+  }
+
   void _scheduleAutoSave() {
+    if (_isSearchMode) return;
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 600), () {
       _saveImmediately();
@@ -391,7 +538,13 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
+      canPop: !_isSearchMode,
       onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_isSearchMode) {
+          _closeSearchMode();
+          return;
+        }
         _saveImmediately();
       },
       child: Scaffold(
@@ -407,110 +560,226 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
               color: const Color(0xFFE2E8F0),
             ),
           ),
-          leading: IconButton(
-            icon: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              size: 20,
-              color: Color(0xFF1E293B),
-            ),
-            onPressed: () {
-              _saveImmediately();
-              Navigator.of(context).pop();
-            },
-          ),
-          title: TextField(
-            controller: _titleController,
-            selectionControls: CustomTouchTextSelectionControls.instance,
-            enableInteractiveSelection: true,
-            textCapitalization: TextCapitalization.sentences,
-            style: const TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF0F172A),
-            ),
-            decoration: const InputDecoration(
-              hintText: 'Judul Catatan...',
-              hintStyle: TextStyle(
-                fontFamily: 'Poppins',
-                color: Color(0xFF94A3B8),
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-              ),
-              border: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(vertical: 8),
-            ),
-          ),
-          actions: [
-            // Tombol Undo & Redo (Menyamping, Icon Saja, Tidak Tertutup Otomatis + Tombol Silang)
-            PopupMenuButton<void>(
-              tooltip: 'Riwayat (Undo / Redo)',
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-                side: const BorderSide(color: Color(0xFFE2E8F0)),
-              ),
-              color: Colors.white,
-              elevation: 4,
-              icon: const Icon(
-                Icons.history_rounded,
-                color: Color(0xFF1E293B),
-                size: 22,
-              ),
-              itemBuilder: (ctx) => [
-                PopupMenuItem<void>(
-                  enabled: false,
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  child: StatefulBuilder(
-                    builder: (context, setMenuState) {
-                      return Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildPopupIconButton(
-                            icon: Icons.undo_rounded,
-                            tooltip: 'Batal (Undo)',
-                            isActive: false,
-                            onTap: () {
-                              _quillController.undo();
-                              setMenuState(() {});
-                              setState(() {});
+          leading: _isSearchMode
+              ? IconButton(
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
+                    size: 20,
+                    color: Color(0xFF1E293B),
+                  ),
+                  tooltip: 'Kembali',
+                  onPressed: _closeSearchMode,
+                )
+              : IconButton(
+                  icon: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 20,
+                    color: Color(0xFF1E293B),
+                  ),
+                  tooltip: 'Kembali',
+                  onPressed: () {
+                    _saveImmediately();
+                    Navigator.of(context).pop();
+                  },
+                ),
+          title: _isSearchMode
+              ? TextField(
+                  controller: _inNoteSearchController,
+                  focusNode: _inNoteSearchFocusNode,
+                  style: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0F172A),
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Cari dalam catatan...',
+                    hintStyle: const TextStyle(
+                      fontFamily: 'Poppins',
+                      color: Color(0xFF94A3B8),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    suffixIcon: _inNoteSearchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              size: 18,
+                              color: Color(0xFF64748B),
+                            ),
+                            tooltip: 'Hapus Teks',
+                            onPressed: () {
+                              _inNoteSearchController.clear();
+                              _performSearch('');
                             },
-                          ),
-                          const SizedBox(width: 4),
-                          _buildPopupIconButton(
-                            icon: Icons.redo_rounded,
-                            tooltip: 'Ulangi (Redo)',
-                            isActive: false,
-                            onTap: () {
-                              _quillController.redo();
-                              setMenuState(() {});
-                              setState(() {});
-                            },
-                          ),
-                          Container(
-                            height: 24,
-                            width: 1,
-                            color: const Color(0xFFE2E8F0),
-                            margin: const EdgeInsets.symmetric(horizontal: 6),
-                          ),
-                          _buildPopupIconButton(
-                            icon: Icons.close_rounded,
-                            tooltip: 'Tutup',
-                            isActive: false,
-                            iconColor: const Color(0xFF64748B),
-                            onTap: () {
-                              Navigator.pop(ctx);
-                            },
-                          ),
-                        ],
-                      );
-                    },
+                          )
+                        : null,
+                  ),
+                  onChanged: _performSearch,
+                  onSubmitted: (_) => _goToNextMatch(),
+                )
+              : TextField(
+                  controller: _titleController,
+                  selectionControls: CustomTouchTextSelectionControls.instance,
+                  enableInteractiveSelection: true,
+                  textCapitalization: TextCapitalization.sentences,
+                  style: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: 'Judul Catatan...',
+                    hintStyle: TextStyle(
+                      fontFamily: 'Poppins',
+                      color: Color(0xFF94A3B8),
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(vertical: 8),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(width: 6),
-          ],
+          actions: _isSearchMode
+              ? [
+                  if (_inNoteSearchController.text.trim().isNotEmpty) ...[
+                    Container(
+                      margin: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _searchMatches.isNotEmpty
+                            ? const Color(0xFFEEF2FF)
+                            : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _searchMatches.isNotEmpty
+                              ? const Color(0xFFC7D2FE)
+                              : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        _searchMatches.isNotEmpty
+                            ? '${_currentMatchIndex + 1}/${_searchMatches.length}'
+                            : '0 hasil',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: _searchMatches.isNotEmpty
+                              ? const Color(0xFF4F46E5)
+                              : const Color(0xFF94A3B8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    IconButton(
+                      icon: const Icon(Icons.keyboard_arrow_up_rounded, size: 22),
+                      color: _searchMatches.isNotEmpty
+                          ? const Color(0xFF4F46E5)
+                          : const Color(0xFFCBD5E1),
+                      tooltip: 'Sebelumnya',
+                      onPressed: _searchMatches.isNotEmpty ? _goToPreviousMatch : null,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 22),
+                      color: _searchMatches.isNotEmpty
+                          ? const Color(0xFF4F46E5)
+                          : const Color(0xFFCBD5E1),
+                      tooltip: 'Berikutnya',
+                      onPressed: _searchMatches.isNotEmpty ? _goToNextMatch : null,
+                    ),
+                  ],
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF64748B)),
+                    tooltip: 'Tutup Pencarian',
+                    onPressed: _closeSearchMode,
+                  ),
+                  const SizedBox(width: 4),
+                ]
+              : [
+                  // Tombol Cari Teks di Catatan
+                  IconButton(
+                    icon: const Icon(
+                      Icons.search_rounded,
+                      color: Color(0xFF1E293B),
+                      size: 22,
+                    ),
+                    tooltip: 'Cari Teks di Catatan',
+                    onPressed: _openSearchMode,
+                  ),
+                  // Tombol Undo & Redo (Menyamping, Icon Saja, Tidak Tertutup Otomatis + Tombol Silang)
+                  PopupMenuButton<void>(
+                    tooltip: 'Riwayat (Undo / Redo)',
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    color: Colors.white,
+                    elevation: 4,
+                    icon: const Icon(
+                      Icons.history_rounded,
+                      color: Color(0xFF1E293B),
+                      size: 22,
+                    ),
+                    itemBuilder: (ctx) => [
+                      PopupMenuItem<void>(
+                        enabled: false,
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        child: StatefulBuilder(
+                          builder: (context, setMenuState) {
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildPopupIconButton(
+                                  icon: Icons.undo_rounded,
+                                  tooltip: 'Batal (Undo)',
+                                  isActive: false,
+                                  onTap: () {
+                                    _quillController.undo();
+                                    setMenuState(() {});
+                                    setState(() {});
+                                  },
+                                ),
+                                const SizedBox(width: 4),
+                                _buildPopupIconButton(
+                                  icon: Icons.redo_rounded,
+                                  tooltip: 'Ulangi (Redo)',
+                                  isActive: false,
+                                  onTap: () {
+                                    _quillController.redo();
+                                    setMenuState(() {});
+                                    setState(() {});
+                                  },
+                                ),
+                                Container(
+                                  height: 24,
+                                  width: 1,
+                                  color: const Color(0xFFE2E8F0),
+                                  margin: const EdgeInsets.symmetric(horizontal: 6),
+                                ),
+                                _buildPopupIconButton(
+                                  icon: Icons.close_rounded,
+                                  tooltip: 'Tutup',
+                                  isActive: false,
+                                  iconColor: const Color(0xFF64748B),
+                                  onTap: () {
+                                    Navigator.pop(ctx);
+                                  },
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 6),
+                ],
         ),
         body: Center(
           child: ConstrainedBox(
@@ -589,7 +858,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                               enableInteractiveSelection: true,
                               showCursor: true,
                               paintCursorAboveText: true,
-                              enableSelectionToolbar: true,
+                              enableSelectionToolbar: !_isSearchMode,
                               textSelectionControls: CustomTouchTextSelectionControls.instance,
                               linkActionPickerDelegate: (context, link, node) async {
                                 await LinkService.showLinkActionDialog(

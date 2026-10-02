@@ -697,6 +697,81 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('First line', findRichText: true), findsOneWidget);
   });
+
+  testWidgets('Test in-note text search in NoteEditorScreen headbar', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+
+    final note = NoteModel(
+      id: 'test-search-note',
+      title: 'Catatan Belajar Flutter',
+      contentJson: json.encode([
+        {'insert': 'Flutter adalah framework populer.\nBelajar Flutter sangat menyenangkan.\nFlutter mendukung multiplatform.\n'},
+      ]),
+      plainText: 'Flutter adalah framework populer.\nBelajar Flutter sangat menyenangkan.\nFlutter mendukung multiplatform.\n',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NoteEditorScreen(
+          note: note,
+          folders: const [],
+          onSave: (_) {},
+          onDelete: (_) {},
+          onFolderCreated: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify search button in headbar
+    final searchBtn = find.byTooltip('Cari Teks di Catatan');
+    expect(searchBtn, findsOneWidget);
+
+    // Tap search button to enter search mode
+    await tester.tap(searchBtn);
+    await tester.pumpAndSettle();
+
+    // Verify search text field is displayed
+    final searchField = find.widgetWithText(TextField, 'Cari dalam catatan...');
+    expect(searchField, findsOneWidget);
+
+    // Enter query 'Flutter' (3 occurrences)
+    await tester.enterText(searchField, 'Flutter');
+    await tester.pumpAndSettle();
+
+    // Verify match counter shows '1/3'
+    expect(find.text('1/3'), findsOneWidget);
+
+    // Tap next match button
+    final nextBtn = find.byTooltip('Berikutnya');
+    expect(nextBtn, findsOneWidget);
+    await tester.tap(nextBtn);
+    await tester.pumpAndSettle();
+    expect(find.text('2/3'), findsOneWidget);
+
+    await tester.tap(nextBtn);
+    await tester.pumpAndSettle();
+    expect(find.text('3/3'), findsOneWidget);
+
+    // Tap previous match button
+    final prevBtn = find.byTooltip('Sebelumnya');
+    expect(prevBtn, findsOneWidget);
+    await tester.tap(prevBtn);
+    await tester.pumpAndSettle();
+    expect(find.text('2/3'), findsOneWidget);
+
+    // Close search mode
+    final closeBtn = find.byTooltip('Tutup Pencarian');
+    expect(closeBtn, findsOneWidget);
+    await tester.tap(closeBtn);
+    await tester.pumpAndSettle();
+
+    // Verify normal AppBar is restored
+    expect(find.text('Catatan Belajar Flutter'), findsOneWidget);
+    expect(find.byTooltip('Cari Teks di Catatan'), findsOneWidget);
+  });
 }
 
 
