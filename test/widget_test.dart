@@ -648,6 +648,55 @@ void main() {
     await gesture2.up();
     await tester.pumpAndSettle();
   });
+
+  testWidgets('Test NoteEditorScreen line spacing slider full left (1.0) and full right (2.8)', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+
+    final note = NoteModel(
+      id: 'test-spacing',
+      title: 'Note Spacing Test',
+      contentJson: json.encode([
+        {'insert': 'First line\nSecond line\n'},
+        {'insert': 'Bullet item\n', 'attributes': {'list': 'bullet'}},
+      ]),
+      plainText: 'First line\nSecond line\nBullet item\n',
+      lineSpacing: 1.6,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NoteEditorScreen(
+          note: note,
+          folders: const [],
+          onSave: (_) {},
+          onDelete: (_) {},
+          onFolderCreated: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final toolbarBtn = find.byTooltip('Ukuran Teks & Jarak Baris');
+    expect(toolbarBtn, findsOneWidget);
+    await tester.tap(toolbarBtn);
+    await tester.pumpAndSettle();
+
+    final sliderFinder = find.byType(Slider);
+    expect(sliderFinder, findsOneWidget);
+    final slider = tester.widget<Slider>(sliderFinder.first);
+
+    // Full left
+    slider.onChanged?.call(1.0);
+    await tester.pumpAndSettle();
+    expect(find.text('First line', findRichText: true), findsOneWidget);
+
+    // Full right
+    slider.onChanged?.call(2.8);
+    await tester.pumpAndSettle();
+    expect(find.text('First line', findRichText: true), findsOneWidget);
+  });
 }
 
 

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'custom_selection_controls.dart';
 
 class DividerSheet extends StatefulWidget {
   final Function(String embedData) onInsert;
@@ -13,12 +14,14 @@ class DividerSheet extends StatefulWidget {
     required BuildContext context,
     required Function(String embedData) onInsert,
   }) {
-    return showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => DividerSheet(onInsert: onInsert),
-    );
+    return CustomTouchTextSelectionControls.showSuppressed(() {
+      return showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (ctx) => DividerSheet(onInsert: onInsert),
+      );
+    });
   }
 
   @override

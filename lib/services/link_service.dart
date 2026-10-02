@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../widgets/custom_selection_controls.dart';
 
 class LinkService {
   /// Regex pattern to detect URLs starting with http://, https://, www., or valid domain names
@@ -143,13 +144,14 @@ class LinkService {
     final normalizedUrl = normalizeUrl(rawUrl);
     final domain = extractDomain(rawUrl);
 
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
+    await CustomTouchTextSelectionControls.showSuppressed(() {
+      return showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (ctx) {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
@@ -366,6 +368,7 @@ class LinkService {
         );
       },
     );
+    });
   }
 
   /// Dialog to insert or edit a link on current controller selection
@@ -380,9 +383,10 @@ class LinkService {
     final urlController = TextEditingController(text: existingLink);
     final isEditing = existingLink.isNotEmpty;
 
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) {
+    await CustomTouchTextSelectionControls.showSuppressed(() {
+      return showDialog<void>(
+        context: context,
+        builder: (ctx) {
         return AlertDialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
@@ -542,6 +546,7 @@ class LinkService {
         );
       },
     );
+    });
   }
 }
 

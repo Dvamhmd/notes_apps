@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'custom_selection_controls.dart';
 
 class LineSpacingSheet extends StatefulWidget {
   final double currentSpacing;
@@ -18,16 +19,18 @@ class LineSpacingSheet extends StatefulWidget {
     required ValueChanged<double> onSpacingChanged,
     VoidCallback? onReset,
   }) {
-    return showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => LineSpacingSheet(
-        currentSpacing: currentSpacing,
-        onSpacingChanged: onSpacingChanged,
-        onReset: onReset,
-      ),
-    );
+    return CustomTouchTextSelectionControls.showSuppressed(() {
+      return showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (ctx) => LineSpacingSheet(
+          currentSpacing: currentSpacing,
+          onSpacingChanged: onSpacingChanged,
+          onReset: onReset,
+        ),
+      );
+    });
   }
 
   @override
@@ -158,10 +161,11 @@ class _LineSpacingSheetState extends State<LineSpacingSheet> {
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: InkWell(
                       onTap: () {
+                        final clamped = double.parse(val.clamp(1.0, 2.8).toStringAsFixed(2));
                         setState(() {
-                          _spacing = val;
+                          _spacing = clamped;
                         });
-                        widget.onSpacingChanged(_spacing);
+                        widget.onSpacingChanged(clamped);
                       },
                       borderRadius: BorderRadius.circular(14),
                       child: AnimatedContainer(
@@ -292,15 +296,16 @@ class _LineSpacingSheetState extends State<LineSpacingSheet> {
                       overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
                     ),
                     child: Slider(
-                      value: _spacing,
+                      value: _spacing.clamp(1.0, 2.8),
                       min: 1.0,
                       max: 2.8,
                       divisions: 36,
                       onChanged: (val) {
+                        final clamped = double.parse(val.clamp(1.0, 2.8).toStringAsFixed(2));
                         setState(() {
-                          _spacing = val;
+                          _spacing = clamped;
                         });
-                        widget.onSpacingChanged(val);
+                        widget.onSpacingChanged(clamped);
                       },
                     ),
                   ),

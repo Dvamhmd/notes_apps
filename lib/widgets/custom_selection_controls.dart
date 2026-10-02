@@ -10,6 +10,39 @@ class CustomTouchTextSelectionControls extends MaterialTextSelectionControls {
   static final CustomTouchTextSelectionControls instance =
       CustomTouchTextSelectionControls();
 
+  static int _suppressionCount = 0;
+  static final ValueNotifier<bool> suppressedNotifier = ValueNotifier<bool>(false);
+
+  static bool get isSuppressed => suppressedNotifier.value;
+
+  static void suppress() {
+    _suppressionCount++;
+    if (_suppressionCount == 1) {
+      suppressedNotifier.value = true;
+    }
+  }
+
+  static void unsuppress() {
+    if (_suppressionCount > 0) {
+      _suppressionCount--;
+      if (_suppressionCount == 0) {
+        suppressedNotifier.value = false;
+      }
+    }
+  }
+
+  /// Convenience helper to run an async action (e.g. showModalBottomSheet or showDialog)
+  /// while automatically suppressing text selection handles to prevent them from
+  /// floating over modal sheets and dialogs.
+  static Future<T?> showSuppressed<T>(Future<T?> Function() action) async {
+    suppress();
+    try {
+      return await action();
+    } finally {
+      unsuppress();
+    }
+  }
+
   static const double handleWidth = 28.0;
   static const double handleHeight = 30.0;
 
@@ -40,7 +73,7 @@ class CustomTouchTextSelectionControls extends MaterialTextSelectionControls {
     final handleColor = theme.textSelectionTheme.selectionHandleColor ??
         theme.colorScheme.primary;
 
-    final Widget handle = SizedBox(
+    Widget handle = SizedBox(
       width: handleWidth,
       height: handleHeight,
       child: CustomPaint(
@@ -52,12 +85,22 @@ class CustomTouchTextSelectionControls extends MaterialTextSelectionControls {
     );
 
     if (onTap != null) {
-      return GestureDetector(
+      handle = GestureDetector(
         onTap: onTap,
         child: handle,
       );
     }
-    return handle;
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: suppressedNotifier,
+      builder: (context, suppressed, child) {
+        if (suppressed) {
+          return const SizedBox.shrink();
+        }
+        return child!;
+      },
+      child: handle,
+    );
   }
 
   @override

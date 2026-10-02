@@ -176,48 +176,55 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
     final selStyle = _quillController.getSelectionStyle();
     final lineAttr = selStyle.attributes[Attribute.lineHeight.key];
     final double activeSpacing =
-        (lineAttr?.value != null ? double.tryParse(lineAttr!.value.toString()) : null) ?? 1.6;
+        (lineAttr?.value != null ? double.tryParse(lineAttr!.value.toString()) : null) ?? _lineSpacing;
 
     LineSpacingSheet.show(
       context: context,
-      currentSpacing: activeSpacing,
+      currentSpacing: activeSpacing.clamp(1.0, 2.8),
       onSpacingChanged: (newSpacing) {
-        _quillController.formatSelection(
-          Attribute.clone(Attribute.lineHeight, newSpacing),
-        );
+        final clampedVal = double.parse(newSpacing.clamp(1.0, 2.8).toStringAsFixed(2));
+        final selection = _quillController.selection;
+        if (selection.isCollapsed) {
+          final docLength = _quillController.document.length;
+          if (docLength > 0) {
+            _quillController.document.format(
+              0,
+              docLength,
+              Attribute.clone(Attribute.lineHeight, clampedVal),
+            );
+          }
+        } else {
+          _quillController.formatSelection(
+            Attribute.clone(Attribute.lineHeight, clampedVal),
+          );
+        }
+        setState(() {
+          _lineSpacing = clampedVal;
+        });
         _scheduleAutoSave();
       },
       onReset: () {
-        _quillController.formatSelection(
-          Attribute.clone(Attribute.lineHeight, null),
-        );
+        final selection = _quillController.selection;
+        if (selection.isCollapsed) {
+          final docLength = _quillController.document.length;
+          if (docLength > 0) {
+            _quillController.document.format(
+              0,
+              docLength,
+              Attribute.clone(Attribute.lineHeight, null),
+            );
+          }
+        } else {
+          _quillController.formatSelection(
+            Attribute.clone(Attribute.lineHeight, null),
+          );
+        }
+        setState(() {
+          _lineSpacing = 1.6;
+        });
         _scheduleAutoSave();
       },
     );
-  }
-
-  bool get _isAlignCenter {
-    final style = _quillController.getSelectionStyle();
-    final attr = style.attributes[Attribute.align.key];
-    return attr != null && attr.value == 'center';
-  }
-
-  bool get _isAlignRight {
-    final style = _quillController.getSelectionStyle();
-    final attr = style.attributes[Attribute.align.key];
-    return attr != null && attr.value == 'right';
-  }
-
-  bool get _isAlignJustify {
-    final style = _quillController.getSelectionStyle();
-    final attr = style.attributes[Attribute.align.key];
-    return attr != null && attr.value == 'justify';
-  }
-
-  bool get _isAlignLeft {
-    final style = _quillController.getSelectionStyle();
-    final attr = style.attributes[Attribute.align.key];
-    return attr == null || attr.value == 'left' || attr.value == null;
   }
 
   Widget _buildPopupIconButton({
@@ -436,101 +443,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
             ),
           ),
           actions: [
-            // 1. Tombol Perataan Teks (Menyamping, Icon Saja, Tidak Tertutup Otomatis + Tombol Silang)
-            PopupMenuButton<void>(
-              tooltip: 'Perataan Teks',
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-                side: const BorderSide(color: Color(0xFFE2E8F0)),
-              ),
-              color: Colors.white,
-              elevation: 4,
-              icon: Icon(
-                _isAlignCenter
-                    ? Icons.format_align_center_rounded
-                    : (_isAlignRight
-                        ? Icons.format_align_right_rounded
-                        : (_isAlignJustify
-                            ? Icons.format_align_justify_rounded
-                            : Icons.format_align_left_rounded)),
-                color: const Color(0xFF1E293B),
-                size: 22,
-              ),
-              itemBuilder: (ctx) => [
-                PopupMenuItem<void>(
-                  enabled: false,
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  child: StatefulBuilder(
-                    builder: (context, setMenuState) {
-                      return Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildPopupIconButton(
-                            icon: Icons.format_align_left_rounded,
-                            tooltip: 'Rata Kiri',
-                            isActive: _isAlignLeft,
-                            onTap: () {
-                              _quillController.formatSelection(Attribute.leftAlignment);
-                              setMenuState(() {});
-                              setState(() {});
-                            },
-                          ),
-                          const SizedBox(width: 4),
-                          _buildPopupIconButton(
-                            icon: Icons.format_align_center_rounded,
-                            tooltip: 'Rata Tengah',
-                            isActive: _isAlignCenter,
-                            onTap: () {
-                              _quillController.formatSelection(Attribute.centerAlignment);
-                              setMenuState(() {});
-                              setState(() {});
-                            },
-                          ),
-                          const SizedBox(width: 4),
-                          _buildPopupIconButton(
-                            icon: Icons.format_align_right_rounded,
-                            tooltip: 'Rata Kanan',
-                            isActive: _isAlignRight,
-                            onTap: () {
-                              _quillController.formatSelection(Attribute.rightAlignment);
-                              setMenuState(() {});
-                              setState(() {});
-                            },
-                          ),
-                          const SizedBox(width: 4),
-                          _buildPopupIconButton(
-                            icon: Icons.format_align_justify_rounded,
-                            tooltip: 'Rata Kanan-Kiri (Justify)',
-                            isActive: _isAlignJustify,
-                            onTap: () {
-                              _quillController.formatSelection(Attribute.justifyAlignment);
-                              setMenuState(() {});
-                              setState(() {});
-                            },
-                          ),
-                          Container(
-                            height: 24,
-                            width: 1,
-                            color: const Color(0xFFE2E8F0),
-                            margin: const EdgeInsets.symmetric(horizontal: 6),
-                          ),
-                          _buildPopupIconButton(
-                            icon: Icons.close_rounded,
-                            tooltip: 'Tutup',
-                            isActive: false,
-                            iconColor: const Color(0xFF64748B),
-                            onTap: () {
-                              Navigator.pop(ctx);
-                            },
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-            // 2. Tombol Undo & Redo (Menyamping, Icon Saja, Tidak Tertutup Otomatis + Tombol Silang)
+            // Tombol Undo & Redo (Menyamping, Icon Saja, Tidak Tertutup Otomatis + Tombol Silang)
             PopupMenuButton<void>(
               tooltip: 'Riwayat (Undo / Redo)',
               shape: RoundedRectangleBorder(
@@ -782,8 +695,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                                 }
                                 if (attribute.key == Attribute.lineHeight.key) {
                                   final h = double.tryParse(attribute.value?.toString() ?? '');
-                                  if (h != null) {
-                                    return TextStyle(height: h);
+                                  if (h != null && h > 0) {
+                                    return TextStyle(height: h.clamp(1.0, 3.0));
                                   }
                                 }
                                 if (attribute.key == Attribute.size.key) {
@@ -817,7 +730,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                                 final customHeight = blockHeightAttr?.value != null
                                     ? double.tryParse(blockHeightAttr!.value.toString())
                                     : null;
-                                final effectiveHeight = customHeight ?? 1.6;
+                                final effectiveHeight = (customHeight ?? _lineSpacing).clamp(1.0, 3.0);
 
                                 // The list line in Flutter Quill has a minimum bounding strut of 15.0 pt
                                 // and expands when text font size is larger than 15.0 pt.
@@ -832,7 +745,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                                   // Optical vertical center calculation for Poppins text glyphs
                                   final baselineY = (lineBoxHeight / 2) + (nominalFontSize * 0.35);
                                   final opticalCenterY = baselineY - (effectiveFontSize * 0.35);
-                                  final bulletTop = (opticalCenterY - (bulletSize / 2)).clamp(0.0, lineBoxHeight - bulletSize);
+                                  final maxBulletTop = math.max(0.0, lineBoxHeight - bulletSize);
+                                  final bulletTop = (opticalCenterY - (bulletSize / 2)).clamp(0.0, maxBulletTop);
 
                                   return Container(
                                     width: leadingWidth,
@@ -904,7 +818,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                                     fontFamily: 'Poppins',
                                     fontSize: 15 * _zoomScale,
                                     color: const Color(0xFF1E293B),
-                                    height: 1.6,
+                                    height: _lineSpacing.clamp(1.0, 3.0),
                                   ),
                                   const HorizontalSpacing(0, 0),
                                   const VerticalSpacing(0, 1.8),
@@ -917,7 +831,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                                     fontSize: 24 * _zoomScale,
                                     fontWeight: FontWeight.w700,
                                     color: const Color(0xFF0F172A),
-                                    height: 1.35,
+                                    height: (_lineSpacing * 0.85).clamp(1.1, 2.4),
                                   ),
                                   const HorizontalSpacing(0, 0),
                                   const VerticalSpacing(16, 8),
@@ -930,7 +844,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                                     fontSize: 20 * _zoomScale,
                                     fontWeight: FontWeight.w600,
                                     color: const Color(0xFF1E293B),
-                                    height: 1.45,
+                                    height: (_lineSpacing * 0.9).clamp(1.15, 2.5),
                                   ),
                                   const HorizontalSpacing(0, 0),
                                   const VerticalSpacing(12, 6),
@@ -943,7 +857,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                                     fontSize: 17 * _zoomScale,
                                     fontWeight: FontWeight.w600,
                                     color: const Color(0xFF334155),
-                                    height: 1.5,
+                                    height: (_lineSpacing * 0.95).clamp(1.2, 2.6),
                                   ),
                                   const HorizontalSpacing(0, 0),
                                   const VerticalSpacing(8, 4),
@@ -955,7 +869,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                                     fontFamily: 'Poppins',
                                     fontSize: 15 * _zoomScale,
                                     color: const Color(0xFF1E293B),
-                                    height: 1.6,
+                                    height: _lineSpacing.clamp(1.0, 3.0),
                                   ),
                                   const HorizontalSpacing(0, 0),
                                   const VerticalSpacing(2, 1.2),
@@ -968,7 +882,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                                     fontFamily: 'Poppins',
                                     fontSize: 15 * _zoomScale,
                                     color: const Color(0xFF1E293B),
-                                    height: 1.6,
+                                    height: _lineSpacing.clamp(1.0, 3.0),
                                   ),
                                   const HorizontalSpacing(0, 0),
                                   const VerticalSpacing(0, 0),
@@ -988,8 +902,11 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                 // Custom Toolbar for Rich Text Styling & Line Spacing
                 CustomToolbar(
                   controller: _quillController,
-                  lineSpacing: 1.6,
+                  lineSpacing: _lineSpacing,
                   onLineSpacingChanged: (val) {
+                    setState(() {
+                      _lineSpacing = val;
+                    });
                     _scheduleAutoSave();
                   },
                   onOpenLineSpacing: _showLineSpacingDialog,

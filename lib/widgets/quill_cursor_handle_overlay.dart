@@ -67,6 +67,7 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
     widget.controller.addListener(_onEditorChanged);
     widget.focusNode.addListener(_onFocusChanged);
     widget.scrollController?.addListener(_onScrollChanged);
+    CustomTouchTextSelectionControls.suppressedNotifier.addListener(_onSuppressionChanged);
 
     // Initial check
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -74,6 +75,16 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
         _showHandle();
       }
     });
+  }
+
+  void _onSuppressionChanged() {
+    if (CustomTouchTextSelectionControls.isSuppressed) {
+      _hideHandleImmediate();
+    } else {
+      if (mounted && widget.focusNode.hasFocus && widget.controller.selection.isCollapsed) {
+        _showHandle();
+      }
+    }
   }
 
   @override
@@ -96,6 +107,7 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
 
   @override
   void dispose() {
+    CustomTouchTextSelectionControls.suppressedNotifier.removeListener(_onSuppressionChanged);
     _fadeTimer?.cancel();
     _fadeController.dispose();
     widget.controller.removeListener(_onEditorChanged);
@@ -145,7 +157,7 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
   }
 
   void _showHandle() {
-    if (!mounted) return;
+    if (!mounted || CustomTouchTextSelectionControls.isSuppressed) return;
     final selection = widget.controller.selection;
     if (!selection.isCollapsed || selection.baseOffset < 0 || !widget.focusNode.hasFocus) {
       return;
@@ -404,7 +416,9 @@ class _QuillCursorHandleOverlayState extends State<QuillCursorHandleOverlay>
     return OverlayPortal(
       controller: _overlayController,
       overlayChildBuilder: (context) {
-        if (_caretBottomPosition == null) return const SizedBox.shrink();
+        if (_caretBottomPosition == null || CustomTouchTextSelectionControls.isSuppressed) {
+          return const SizedBox.shrink();
+        }
 
         return Positioned(
           left: _caretBottomPosition!.dx - 24.0, // Center 48px hit area at caret X
