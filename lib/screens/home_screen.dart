@@ -346,13 +346,27 @@ class _HomeScreenState extends State<HomeScreen> {
       if (target != null) {
         // If target folder is locked and we're entering it, verify password
         if (target.id != _currentFolderId && target.isLocked && target.password != null && target.password!.isNotEmpty) {
-          final unlocked = await PasswordDialog.showUnlock(
-            context,
-            title: target.name,
-            itemType: 'Folder',
-            correctPassword: target.password!,
-          );
-          if (!unlocked || !mounted) return;
+          if (!FolderUtils.isFolderUnlocked(target.id)) {
+            final unlocked = await PasswordDialog.showUnlock(
+              context,
+              title: target.name,
+              itemType: 'Folder',
+              correctPassword: target.password!,
+              onPasswordChanged: (newPass) async {
+                final updated = target.copyWith(isLocked: true, password: newPass);
+                await _storageService.updateFolder(updated);
+                _loadData();
+              },
+              onPasswordRemoved: () async {
+                final updated = target.copyWith(isLocked: false, clearPassword: true);
+                await _storageService.updateFolder(updated);
+                FolderUtils.lockFolder(target.id);
+                _loadData();
+              },
+            );
+            if (!unlocked || !mounted) return;
+            FolderUtils.unlockFolder(target.id);
+          }
         }
 
         final updated = target.copyWith(
@@ -468,15 +482,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _openNoteEditor(NoteModel note) async {
     // 1. Check if folder or any ancestor folder is locked
-    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders);
-    if (lockedFolder != null && lockedFolder.id != _currentFolderId && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
+    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders, currentFolderId: _currentFolderId);
+    if (lockedFolder != null && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
       final unlocked = await PasswordDialog.showUnlock(
         context,
         title: lockedFolder.name,
         itemType: 'Folder',
         correctPassword: lockedFolder.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = lockedFolder.copyWith(isLocked: true, password: newPass);
+          await _storageService.updateFolder(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = lockedFolder.copyWith(isLocked: false, clearPassword: true);
+          await _storageService.updateFolder(updated);
+          FolderUtils.lockFolder(lockedFolder.id);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
+      FolderUtils.unlockFolder(lockedFolder.id);
     }
 
     // 2. Check if note itself is locked
@@ -486,6 +512,16 @@ class _HomeScreenState extends State<HomeScreen> {
         title: note.title.isEmpty ? 'Catatan' : note.title,
         itemType: 'Catatan',
         correctPassword: note.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = note.copyWith(isLocked: true, password: newPass);
+          await _storageService.saveOrUpdateNote(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = note.copyWith(isLocked: false, password: null);
+          await _storageService.saveOrUpdateNote(updated);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
     }
@@ -655,15 +691,27 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _moveNote(NoteModel note) async {
-    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders);
-    if (lockedFolder != null && lockedFolder.id != _currentFolderId && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
+    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders, currentFolderId: _currentFolderId);
+    if (lockedFolder != null && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
       final unlocked = await PasswordDialog.showUnlock(
         context,
         title: lockedFolder.name,
         itemType: 'Folder',
         correctPassword: lockedFolder.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = lockedFolder.copyWith(isLocked: true, password: newPass);
+          await _storageService.updateFolder(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = lockedFolder.copyWith(isLocked: false, clearPassword: true);
+          await _storageService.updateFolder(updated);
+          FolderUtils.lockFolder(lockedFolder.id);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
+      FolderUtils.unlockFolder(lockedFolder.id);
     }
     if (note.isLocked && note.password != null && note.password!.isNotEmpty) {
       final unlocked = await PasswordDialog.showUnlock(
@@ -671,6 +719,16 @@ class _HomeScreenState extends State<HomeScreen> {
         title: note.title.isEmpty ? 'Catatan' : note.title,
         itemType: 'Catatan',
         correctPassword: note.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = note.copyWith(isLocked: true, password: newPass);
+          await _storageService.saveOrUpdateNote(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = note.copyWith(isLocked: false, password: null);
+          await _storageService.saveOrUpdateNote(updated);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
     }
@@ -706,15 +764,27 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _togglePin(NoteModel note) async {
-    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders);
-    if (lockedFolder != null && lockedFolder.id != _currentFolderId && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
+    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders, currentFolderId: _currentFolderId);
+    if (lockedFolder != null && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
       final unlocked = await PasswordDialog.showUnlock(
         context,
         title: lockedFolder.name,
         itemType: 'Folder',
         correctPassword: lockedFolder.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = lockedFolder.copyWith(isLocked: true, password: newPass);
+          await _storageService.updateFolder(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = lockedFolder.copyWith(isLocked: false, clearPassword: true);
+          await _storageService.updateFolder(updated);
+          FolderUtils.lockFolder(lockedFolder.id);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
+      FolderUtils.unlockFolder(lockedFolder.id);
     }
     if (note.isLocked && note.password != null && note.password!.isNotEmpty) {
       final unlocked = await PasswordDialog.showUnlock(
@@ -722,6 +792,16 @@ class _HomeScreenState extends State<HomeScreen> {
         title: note.title.isEmpty ? 'Catatan' : note.title,
         itemType: 'Catatan',
         correctPassword: note.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = note.copyWith(isLocked: true, password: newPass);
+          await _storageService.saveOrUpdateNote(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = note.copyWith(isLocked: false, password: null);
+          await _storageService.saveOrUpdateNote(updated);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
     }
@@ -1195,15 +1275,27 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
   void _handleLockNote(NoteModel note) async {
-    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders);
-    if (lockedFolder != null && lockedFolder.id != _currentFolderId && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
+    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders, currentFolderId: _currentFolderId);
+    if (lockedFolder != null && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
       final unlocked = await PasswordDialog.showUnlock(
         context,
         title: lockedFolder.name,
         itemType: 'Folder',
         correctPassword: lockedFolder.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = lockedFolder.copyWith(isLocked: true, password: newPass);
+          await _storageService.updateFolder(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = lockedFolder.copyWith(isLocked: false, clearPassword: true);
+          await _storageService.updateFolder(updated);
+          FolderUtils.lockFolder(lockedFolder.id);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
+      FolderUtils.unlockFolder(lockedFolder.id);
     }
 
     if (!note.isLocked || note.password == null || note.password!.isEmpty) {
@@ -1353,15 +1445,27 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showRenameNoteDialog(NoteModel note) async {
-    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders);
-    if (lockedFolder != null && lockedFolder.id != _currentFolderId && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
+    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders, currentFolderId: _currentFolderId);
+    if (lockedFolder != null && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
       final unlocked = await PasswordDialog.showUnlock(
         context,
         title: lockedFolder.name,
         itemType: 'Folder',
         correctPassword: lockedFolder.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = lockedFolder.copyWith(isLocked: true, password: newPass);
+          await _storageService.updateFolder(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = lockedFolder.copyWith(isLocked: false, clearPassword: true);
+          await _storageService.updateFolder(updated);
+          FolderUtils.lockFolder(lockedFolder.id);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
+      FolderUtils.unlockFolder(lockedFolder.id);
     }
     if (note.isLocked && note.password != null && note.password!.isNotEmpty) {
       final unlocked = await PasswordDialog.showUnlock(
@@ -1369,6 +1473,16 @@ class _HomeScreenState extends State<HomeScreen> {
         title: note.title.isEmpty ? 'Catatan' : note.title,
         itemType: 'Catatan',
         correctPassword: note.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = note.copyWith(isLocked: true, password: newPass);
+          await _storageService.saveOrUpdateNote(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = note.copyWith(isLocked: false, password: null);
+          await _storageService.saveOrUpdateNote(updated);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
     }
@@ -1476,15 +1590,27 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _confirmDeleteNote(NoteModel note) async {
-    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders);
-    if (lockedFolder != null && lockedFolder.id != _currentFolderId && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
+    final lockedFolder = FolderUtils.getLockedAncestorFolder(note.folderId, _folders, currentFolderId: _currentFolderId);
+    if (lockedFolder != null && lockedFolder.password != null && lockedFolder.password!.isNotEmpty) {
       final unlocked = await PasswordDialog.showUnlock(
         context,
         title: lockedFolder.name,
         itemType: 'Folder',
         correctPassword: lockedFolder.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = lockedFolder.copyWith(isLocked: true, password: newPass);
+          await _storageService.updateFolder(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = lockedFolder.copyWith(isLocked: false, clearPassword: true);
+          await _storageService.updateFolder(updated);
+          FolderUtils.lockFolder(lockedFolder.id);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
+      FolderUtils.unlockFolder(lockedFolder.id);
     }
     if (note.isLocked && note.password != null && note.password!.isNotEmpty) {
       final unlocked = await PasswordDialog.showUnlock(
@@ -1492,6 +1618,16 @@ class _HomeScreenState extends State<HomeScreen> {
         title: note.title.isEmpty ? 'Catatan' : note.title,
         itemType: 'Catatan',
         correctPassword: note.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = note.copyWith(isLocked: true, password: newPass);
+          await _storageService.saveOrUpdateNote(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = note.copyWith(isLocked: false, password: null);
+          await _storageService.saveOrUpdateNote(updated);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
     }
@@ -3727,8 +3863,8 @@ class _HomeScreenState extends State<HomeScreen> {
         else
           ...displayedNotes.map((note) {
             final folder = _getFolderById(note.folderId);
-            final isFolderLocked = FolderUtils.isFolderOrAncestorLocked(note.folderId, _folders);
-            final isLockedForDisplay = isFolderLocked && _currentFolderId == null;
+            final isFolderLocked = FolderUtils.isFolderOrAncestorLocked(note.folderId, _folders, currentFolderId: _currentFolderId);
+            final isLockedForDisplay = isFolderLocked;
             final isSelected = _selectedNoteIds.contains(note.id);
 
             if (_isSelectionMode) {
@@ -4199,8 +4335,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           ...matchedNotes.map((note) {
             final folder = _getFolderById(note.folderId);
-            final isFolderLocked = FolderUtils.isFolderOrAncestorLocked(note.folderId, _folders);
-            final isLockedForDisplay = isFolderLocked && (_currentFolderId == null || _currentFolderId != note.folderId);
+            final isFolderLocked = FolderUtils.isFolderOrAncestorLocked(note.folderId, _folders, currentFolderId: _currentFolderId);
+            final isLockedForDisplay = isFolderLocked;
             final folderPathStr = FolderUtils.getFolderPathString(
               note.folderId,
               _folders,

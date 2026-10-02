@@ -198,8 +198,20 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
         title: lockedFolder.name,
         itemType: 'Folder',
         correctPassword: lockedFolder.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = lockedFolder.copyWith(isLocked: true, password: newPass);
+          await _storageService.updateFolder(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = lockedFolder.copyWith(isLocked: false, clearPassword: true);
+          await _storageService.updateFolder(updated);
+          FolderUtils.lockFolder(lockedFolder.id);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
+      FolderUtils.unlockFolder(lockedFolder.id);
     }
 
     // 2. Check if note itself is locked
@@ -209,6 +221,18 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
         title: note.title.isEmpty ? 'Catatan' : note.title,
         itemType: 'Catatan',
         correctPassword: note.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = note.copyWith(isLocked: true, password: newPass);
+          await _storageService.saveOrUpdateNote(updated);
+          widget.onNoteSaved?.call(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = note.copyWith(isLocked: false, password: null);
+          await _storageService.saveOrUpdateNote(updated);
+          widget.onNoteSaved?.call(updated);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
     }
@@ -327,8 +351,20 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
         title: lockedFolder.name,
         itemType: 'Folder',
         correctPassword: lockedFolder.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = lockedFolder.copyWith(isLocked: true, password: newPass);
+          await _storageService.updateFolder(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = lockedFolder.copyWith(isLocked: false, clearPassword: true);
+          await _storageService.updateFolder(updated);
+          FolderUtils.lockFolder(lockedFolder.id);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
+      FolderUtils.unlockFolder(lockedFolder.id);
     }
     if (note.isLocked && note.password != null && note.password!.isNotEmpty) {
       final unlocked = await PasswordDialog.showUnlock(
@@ -336,6 +372,18 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
         title: note.title.isEmpty ? 'Catatan' : note.title,
         itemType: 'Catatan',
         correctPassword: note.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = note.copyWith(isLocked: true, password: newPass);
+          await _storageService.saveOrUpdateNote(updated);
+          widget.onNoteSaved?.call(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = note.copyWith(isLocked: false, password: null);
+          await _storageService.saveOrUpdateNote(updated);
+          widget.onNoteSaved?.call(updated);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
     }
@@ -361,8 +409,20 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
         title: lockedFolder.name,
         itemType: 'Folder',
         correctPassword: lockedFolder.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = lockedFolder.copyWith(isLocked: true, password: newPass);
+          await _storageService.updateFolder(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = lockedFolder.copyWith(isLocked: false, clearPassword: true);
+          await _storageService.updateFolder(updated);
+          FolderUtils.lockFolder(lockedFolder.id);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
+      FolderUtils.unlockFolder(lockedFolder.id);
     }
     if (note.isLocked && note.password != null && note.password!.isNotEmpty) {
       final unlocked = await PasswordDialog.showUnlock(
@@ -370,6 +430,18 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
         title: note.title.isEmpty ? 'Catatan' : note.title,
         itemType: 'Catatan',
         correctPassword: note.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = note.copyWith(isLocked: true, password: newPass);
+          await _storageService.saveOrUpdateNote(updated);
+          widget.onNoteSaved?.call(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = note.copyWith(isLocked: false, password: null);
+          await _storageService.saveOrUpdateNote(updated);
+          widget.onNoteSaved?.call(updated);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
     }
@@ -410,8 +482,20 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
         title: lockedFolder.name,
         itemType: 'Folder',
         correctPassword: lockedFolder.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = lockedFolder.copyWith(isLocked: true, password: newPass);
+          await _storageService.updateFolder(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = lockedFolder.copyWith(isLocked: false, clearPassword: true);
+          await _storageService.updateFolder(updated);
+          FolderUtils.lockFolder(lockedFolder.id);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
+      FolderUtils.unlockFolder(lockedFolder.id);
     }
     if (note.isLocked && note.password != null && note.password!.isNotEmpty) {
       final unlocked = await PasswordDialog.showUnlock(
@@ -419,6 +503,18 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
         title: note.title.isEmpty ? 'Catatan' : note.title,
         itemType: 'Catatan',
         correctPassword: note.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = note.copyWith(isLocked: true, password: newPass);
+          await _storageService.saveOrUpdateNote(updated);
+          widget.onNoteSaved?.call(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = note.copyWith(isLocked: false, password: null);
+          await _storageService.saveOrUpdateNote(updated);
+          widget.onNoteSaved?.call(updated);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
     }
@@ -496,8 +592,20 @@ class _NoteManageScreenState extends State<NoteManageScreen> {
         title: lockedFolder.name,
         itemType: 'Folder',
         correctPassword: lockedFolder.password!,
+        onPasswordChanged: (newPass) async {
+          final updated = lockedFolder.copyWith(isLocked: true, password: newPass);
+          await _storageService.updateFolder(updated);
+          _loadData();
+        },
+        onPasswordRemoved: () async {
+          final updated = lockedFolder.copyWith(isLocked: false, clearPassword: true);
+          await _storageService.updateFolder(updated);
+          FolderUtils.lockFolder(lockedFolder.id);
+          _loadData();
+        },
       );
       if (!unlocked || !mounted) return;
+      FolderUtils.unlockFolder(lockedFolder.id);
     }
 
     if (!note.isLocked || note.password == null || note.password!.isEmpty) {

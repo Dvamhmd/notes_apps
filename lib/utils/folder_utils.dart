@@ -2,6 +2,30 @@ import '../models/folder_model.dart';
 import '../models/sort_option.dart';
 
 class FolderUtils {
+  /// Set of folder IDs that have been unlocked in the current session
+  static final Set<String> _unlockedFolderIds = <String>{};
+
+  /// Mark a folder as unlocked for the current app session
+  static void unlockFolder(String folderId) {
+    _unlockedFolderIds.add(folderId);
+  }
+
+  /// Mark a folder as locked / remove from session unlocked set
+  static void lockFolder(String folderId) {
+    _unlockedFolderIds.remove(folderId);
+  }
+
+  /// Clear all unlocked folder session states
+  static void clearUnlockedFolders() {
+    _unlockedFolderIds.clear();
+  }
+
+  /// Check if a specific folder is considered unlocked in current session
+  static bool isFolderUnlocked(String? folderId) {
+    if (folderId == null) return true;
+    return _unlockedFolderIds.contains(folderId);
+  }
+
   /// Returns the breadcrumb list of folders from Root to the target folder
   static List<FolderModel> getFolderPath(
     String? folderId,
@@ -33,13 +57,30 @@ class FolderUtils {
 
   /// Checks if the given folder or any of its parent ancestors is locked with a valid password.
   /// Returns the locked folder instance if found, or null if none is locked.
+  /// If [currentFolderId] is provided, any ancestors at or above currentFolderId in the hierarchy
+  /// are considered already unlocked.
   static FolderModel? getLockedAncestorFolder(
     String? folderId,
-    List<FolderModel> allFolders,
-  ) {
+    List<FolderModel> allFolders, {
+    String? currentFolderId,
+  }) {
     if (folderId == null) return null;
     final path = getFolderPath(folderId, allFolders);
+
+    // If currentFolderId is provided, any ancestor traversed to reach currentFolderId is already unlocked
+    final Set<String> alreadyNavigatedIds = {};
+    if (currentFolderId != null) {
+      final currentPath = getFolderPath(currentFolderId, allFolders);
+      for (final f in currentPath) {
+        alreadyNavigatedIds.add(f.id);
+      }
+    }
+
     for (final folder in path) {
+      // If folder was already navigated into or unlocked in session, skip it
+      if (alreadyNavigatedIds.contains(folder.id) || _unlockedFolderIds.contains(folder.id)) {
+        continue;
+      }
       if (folder.isLocked && folder.password != null && folder.password!.isNotEmpty) {
         return folder;
       }
@@ -50,9 +91,10 @@ class FolderUtils {
   /// Helper to check if a folder (or any of its parent ancestors) is locked
   static bool isFolderOrAncestorLocked(
     String? folderId,
-    List<FolderModel> allFolders,
-  ) {
-    return getLockedAncestorFolder(folderId, allFolders) != null;
+    List<FolderModel> allFolders, {
+    String? currentFolderId,
+  }) {
+    return getLockedAncestorFolder(folderId, allFolders, currentFolderId: currentFolderId) != null;
   }
 
   /// Returns path as string, e.g. "Pekerjaan > Shift Pagi > Laporan Penjualan"

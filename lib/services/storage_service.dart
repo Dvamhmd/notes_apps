@@ -286,4 +286,44 @@ class StorageService {
       await saveFolders(folders);
     }
   }
+
+  // --- Security & Recovery Operations ---
+  static const String _securityQuestionKey = 'pref_security_question_v1';
+  static const String _securityAnswerKey = 'pref_security_answer_v1';
+
+  Future<String?> getSecurityQuestion() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_securityQuestionKey);
+  }
+
+  Future<String?> getSecurityAnswer() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_securityAnswerKey);
+  }
+
+  Future<bool> hasSecurityQuestion() async {
+    final prefs = await SharedPreferences.getInstance();
+    final q = prefs.getString(_securityQuestionKey);
+    final a = prefs.getString(_securityAnswerKey);
+    return q != null && q.trim().isNotEmpty && a != null && a.trim().isNotEmpty;
+  }
+
+  Future<void> saveSecurityQuestion(String question, String answer) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_securityQuestionKey, question.trim());
+    await prefs.setString(_securityAnswerKey, answer.trim().toLowerCase());
+  }
+
+  Future<bool> verifySecurityAnswer(String inputAnswer) async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(_securityAnswerKey);
+    if (stored == null) return false;
+    return stored.trim().toLowerCase() == inputAnswer.trim().toLowerCase();
+  }
+
+  Future<void> clearSecurityQuestion() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_securityQuestionKey);
+    await prefs.remove(_securityAnswerKey);
+  }
 }

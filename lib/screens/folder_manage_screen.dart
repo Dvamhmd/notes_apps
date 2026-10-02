@@ -71,13 +71,27 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
     if (folderId != null) {
       final folder = _folders.where((f) => f.id == folderId).firstOrNull;
       if (folder != null && folder.isLocked && folder.password != null && folder.password!.isNotEmpty) {
-        final unlocked = await PasswordDialog.showUnlock(
-          context,
-          title: folder.name,
-          itemType: 'Folder',
-          correctPassword: folder.password!,
-        );
-        if (!unlocked || !mounted) return;
+        if (!FolderUtils.isFolderUnlocked(folder.id)) {
+          final unlocked = await PasswordDialog.showUnlock(
+            context,
+            title: folder.name,
+            itemType: 'Folder',
+            correctPassword: folder.password!,
+            onPasswordChanged: (newPass) async {
+              final updated = folder.copyWith(isLocked: true, password: newPass);
+              await StorageService().updateFolder(updated);
+              _loadData();
+            },
+            onPasswordRemoved: () async {
+              final updated = folder.copyWith(isLocked: false, clearPassword: true);
+              await StorageService().updateFolder(updated);
+              FolderUtils.lockFolder(folder.id);
+              _loadData();
+            },
+          );
+          if (!unlocked || !mounted) return;
+          FolderUtils.unlockFolder(folder.id);
+        }
       }
     }
 
@@ -125,6 +139,7 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
           password: newPass,
         );
         await storageService.updateFolder(updated);
+        FolderUtils.unlockFolder(folder.id);
         await _loadData();
         _showToast(
           'Folder "${folder.name}" berhasil dikunci dengan kata sandi',
@@ -147,6 +162,7 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
             clearPassword: true,
           );
           await storageService.updateFolder(updated);
+          FolderUtils.lockFolder(folder.id);
           await _loadData();
           _showToast(
             'Kunci folder "${folder.name}" berhasil dihapus',
@@ -159,6 +175,7 @@ class _FolderManageScreenState extends State<FolderManageScreen> {
             password: result.newPassword,
           );
           await storageService.updateFolder(updated);
+          FolderUtils.unlockFolder(folder.id);
           await _loadData();
           _showToast(
             'Kata sandi folder "${folder.name}" berhasil diubah',
